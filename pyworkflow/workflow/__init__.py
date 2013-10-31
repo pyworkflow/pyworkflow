@@ -7,5 +7,6 @@ class Workflow(object):
     activities = []
     
     @classmethod
-    def decide(cls, decision):
+    def decide(cls, process):
+    	''' Take decisions for the process given its history '''
         raise NotImplementedError()
