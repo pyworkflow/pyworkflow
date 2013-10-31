@@ -1,36 +1,48 @@
 class Backend(object):
-	def register_workflow(self, workflow):
-		raise NotImplementedError()
+    DEFAULT_WORKFLOW_TIMEOUT = 31536000
+    DEFAULT_ACTIVITY_TIMEOUT = 31536000
+    DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT = 3600
 
-	def register_activity(self, activity):
-		raise NotImplementedError()
+    def register_workflow(self, name, version="1.0", timeout=DEFAULT_WORKFLOW_TIMEOUT):
+        raise NotImplementedError()
 
-	def start_process(self, workflow, input):
-		raise NotImplementedError()
+    def register_activity(self, name, version="1.0", category="default", timeout=DEFAULT_ACTIVITY_TIMEOUT, heartbeat_timeout=DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT):
+        raise NotImplementedError()
 
-	def signal_process(self, pid, signal):
-		raise NotImplementedError()		
+    def processes(self):
+        raise NotImplementedError()     
+    
+    def start_process(self, process):
+        raise NotImplementedError()
+    
+    def signal_process(self, process, signal, input=None):
+        raise NotImplementedError()
 
-	def complete_process(self, pid):
-		raise NotImplementedError()
+    def cancel_process(self, process, details=None, reason=None):
+        raise NotImplementedError()
 
-	def cancel_process(self, pid):
-		raise NotImplementedError()
+    def poll_activity_task(self):
+        raise NotImplementedError()
 
-	def schedule_activity(self, process, input):
-		raise NotImplementedError()
+    def poll_decision_task(self):
+        raise NotImplementedError()
 
-	def complete_activity(self, process, result):
-		raise NotImplementedError()
+    def complete_decision_task(self, task, decisions):
+        raise NotImplementedError()
 
-	def abort_activity(self, workflow, reason):
-		raise NotImplementedError()
+    def complete_activity_task(self, task, result=None):
+        raise NotImplementedError()
 
-	def fail_activity(self, workflow, error):
-		raise NotImplementedError()
 
-	def poll_activity_task(self):
-		raise NotImplementedError()
 
-	def poll_decision_task(self):
-		raise NotImplementedError()
+
+class MonitoredBackend(Backend):
+    def __init__(self, primary_backend, monitor_backends):
+        self.primary = primary_backend
+        self.monitors = monitor_backends
+
+    def poll_activity_task(self):
+        return self.primary.poll_activity_task()
+
+    def poll_decision_task(self):
+        return self.primary.poll_decision_task()

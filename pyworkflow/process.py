@@ -1,35 +1,23 @@
+from uuid import uuid4
+
 class Process(object):
     """
     Insight: Processes may need to contain execution state in order for 
     backends to take action. Backends may override this class to provide that state.
     """
 
-    def __init__(self, pid, workflow, input=None, parent=None):
-    	self._id = pid
-        self._workflow = workflow
-        self._input = input
+    def __init__(self, pid=None, workflow=None, workflow_version=None, input=None, history=None, parent=None):
+        self.id = pid or str(uuid4())
+        self.workflow = workflow
+        self.workflow_version = workflow_version
+        self.input = input
+        self.history = []
 
     @property
-    def id(self):
-    	return self._id
-
-    @property
-    def workflow(self):
-    	return self._workflow
-
-    @property
-	def parent(self):
-		return self._parent
-
-	@property
-	def input(self):
-		return self._input
-
-	@property
-	def tag(self):
-		return str(self.input)
+    def tag(self):
+        return str(self.input)
 
 class Event(object):
-	def __init__(self, activity, state):
-		self.activity = activity
-		self.state = state
+    def __init__(self, activity, state):
+        self.activity = activity
+        self.state = state
