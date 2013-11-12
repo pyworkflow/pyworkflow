@@ -2,35 +2,41 @@
 
 ## unified framework for workflow processes
 
-pyworkflow allows for the easy implementation of workflows, and handling the execution
-of workflow processes, across multiple backends. Its architectural design is largely
-based on Amazon SWF, and pyworkflow.amazonswf was the first backend to be written
-for pyworkflow. However, different backends can be used allowing to leverage the full
-power of workflows without committing to any single execution backend in terms of
-implementation.
+pyworkflow supports the easy implementation of workflows, and handling the
+execution of workflow processes, across multiple backends. Its API is largely
+based on that of Amazon Simple Workflow Framework (SWF). Different backends can
+be used allowing to leverage the full power of workflows without committing to
+any single execution environment. One could imagine building a backend on a
+generic queueing system or any generic database. One could also use a full-
+fledged solution like Amazon SWF as a backend.
 
 ## Usage
 
-Workflows determine the particular flow of a process through a set of activities.
-The first step is to implement activities by overriding the Activity, like so:
+Workflows determine the particular flow of a process through a set of
+activities. The first step is to implement activities by overriding the
+Activity, like so:
 
 ````
 from pyworkflow.activity import Activity, ActivityAborted
 
-class FooActivity(Activity):
+class MultiplicationActivity(Activity):
 
-	@classmethod
-	def execute(cls, input, heartbeat):
-		heartbeat()
+	def execute(self):
+		if not type(self.input) == list and not len(input) == 2:
+			raise ValueError("invalid input")
 
-		if type(input) == int:
-			if input < 10:
-				return input * 2
-			else:
-				raise ActivityAborted("input out of bounds")
-		else:
-			raise Exception("don't know what to do")
+		if input[0] > 10:
+			return ActivityAborted("first operand must be <= 10")
 
+		result = 0
+		for _ in range(0, input[0]):
+			# multiplication is repeated addition
+			result += input[1]
+
+			# give a sign of life
+			self.heartbeat()
+
+		return result
 ````
 
 Next, we define our workflows that guide processes through the activities. A
@@ -40,16 +46,16 @@ workflow extends the Workflow class and overrides its decide() method:
 from pyworkflow.workflow import Workflow
 from pyworkflow.decision import CompleteProcess
 
-class BarWorkflow(Workflow):
+class FooWorkflow(Workflow):
 
-	activities = [FooActivity]
+	activities = [MultiplicationActivity]
 
-	@classmethod
-	def decide(cls, process):
-		if foo_bar(process.history):
-			return FooActivity
+	def decide(self, process):
+		if foo_bar_conditional(process.history):
+			# shorthand for ScheduleActivity(MultiplicationActivity, input=process.input)
+			return MultiplicationActivity
 		else:
-			return ProcessCompletion()
+			return CompleteProcess()
 ````
 
 Then create a manager with a particular backend and register our workflows
@@ -59,67 +65,106 @@ from pyworkflow.manager import Manager
 from pyworkflow.foo import FooBackend
 
 manager = Manager(backend=FooBackend())
-manager.register_workflow(BarWorkflow)
+manager.register_workflow(FooWorkflow)
 ````
 
-To start an activity worker (in a separate process; is blocking)
+To start an activity worker (in a separate thread/process; is blocking)
 ````
 from pyworkflow.worker import ActivityWorker
-ActivityWorker(backend=manager.backend).run()
+ActivityWorker(manager).run()
 ````
 
 Or a decider:
 ````
-from pyworkflow.decider import Decider
-Decider(backend=manager.backend).run()
+from pyworkflow.worker import DecisionWorker
+DecisionWorker(manager).run()
+````
+
+To start a new process
+````
+process = Process(workflow=FooWorkflow, input=foo_bar)
+manager.start_process(process)
+````
+
+## Backends
+
+### Amazon Simple Workflow Framework
+
+````
+from pyworkflow.backend.amazonswf import AmazonSWFBackend
+from pyworkflow.manager import Manager
+
+backend = AmazonSWFBackend(ACCESS_KEY_ID, SECRET_ACCESS_KEY, region='us-east-1', domain='foo.bar')
+manager = Manager(backend=backend)
 ````
 
 ## Architecture
 
-### Core
-
-Idea: WorkflowType should be the meta class for Workflow, similar to ActivityType for Activity. Then a description object
-can be used to communicate with the backend (register_workflow and process.workflow)
-
 ### Workflow
 
-A Workflow manages the execution path of a Process for that workflow, which
-is a consecutive application of Activities on a certain input. The invocation of a
-Workflow is started when a process for that Workflow is created. 
-
-### Process
-
-A Process is a particular execution of a Workflow. It contains details about the input
-and history of the execution flow.
+A Workflow manages the execution path of a Process for that workflow, which is a
+consecutive application of Activities on a certain input. The invocation of a
+Workflow is started when a process for that Workflow is created. Workflow
+returns decisions on a process by means of Decision objects.
 
 ### Activity
 
-Activity specifies the logic of some business function. It is used to execute ActivityTasks. It is invoked by an ActivityWorker and has a reference to that worker. It may need to let the ActivityWorker know it's still active from time to time by sending heartbeats.
+Activity specifies the logic of some business function. It is used to execute
+ActivityTasks. It may need to let the invoker know it's still active from time
+to time by sending heartbeats. An ActivityMonitor can be set on an activity for
+that purpose. Activity returns results by means of an ActivityResult object.
 
-### ActivityTask
+### Process
 
-An ActivityTask stipulates the execution of some Activity on some input. It is a fully independent entity. It does not contain a reference to the process it is a part of, nor to the invoker who executes it. It is the entity that is exchanged between the backend and the worker as an identifier 
+A Process is a particular execution of a Workflow. It contains details about the
+input and history of the execution flow. Decisions and ActivityResults are
+stored in Events in the process history.
 
-### ActivityWorker
+### Task
 
-ActivityWorker executes an ActivityTask it gets from the backend by instantiating and executing the specified Activity and keeping the backend informed about its progress and results.
+An ActivityTask stipulates the execution of some Activity on some input. It is a
+fully independent entity. It does not contain a reference to the process it is a
+part of, nor to the invoker who executes it. It is the entity that is exchanged
+between the backend and the worker as an identifier. Similarly, a DecisionTask
+stipulates that decisions should be made on the execution path of a particular
+process.
+
+### Backend
+
+A backend administers the execution states of workflow processes and activities.
+It is responsible for storing active processes and handing out tasks to be
+completed. Backend provides the interface to whatever underlying system is used
+to drive the processes and uses the Process and Task classes to communicate.
+
+### Manager
+
+A Manager sits in front of a Backend and links it together with the Activity and
+Workflow classes. It is the main intended high level interface when using
+pyworkflow. Processes can be started as well as signaled through Manager.
+Manager reads Tasks from its Backend and hands those out along with the required
+Activity or Workflow class. It can also communicate results of these tasks back
+to the Backend. Typically a Worker (linked to the manager) would receive and
+execute the tasks.
+
+### Worker
+
+ActivityWorker executes an ActivityTask it gets from the Manager by executing
+the specified Activity and committing the results back to the Manager. It keeps
+the Backend informed of progress through heartbeats. A DecisionWorker executes a
+DecisionTask by asking the specified Workflow to return a list of decisions.
 
 
 ## About
 
 ### License
 
-workflow is under the MIT License.
+pyworkflow is under the MIT License.
 
 ### Contact
 
-workflow is written by [Willem Bult](https://github.com/willembult).
+pyworkflow is written by [Willem Bult](https://github.com/willembult).
 
-Project Homepage:
-[https://github.com/RentMethod/workflow](https://github.com/RentMethod/workflow)
+Project Homepage: [https://github.com/RentMethod/workflow](https://github.com/
+RentMethod/workflow)
 
 Feel free to contact me. But please file issues in github first. Thanks!
-
-## Examples
-
-## API

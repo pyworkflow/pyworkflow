@@ -10,14 +10,17 @@ except:
 
 import unittest
 
-from ..test import WorkflowTestCase
+from ...test import WorkflowBackendTestCase
 from . import AmazonSWFBackend
 
-class AmazonSWFBackendTestCase(WorkflowTestCase):
+class AmazonSWFBackendTestCase(WorkflowBackendTestCase):
 	def setUp(self):
 		self.backend = AmazonSWFBackend(AMAZON_SWF_ACCESS_KEY_ID, AMAZON_SWF_SECRET_ACCESS_KEY, region=AMAZON_SWF_REGION, domain=AMAZON_SWF_DOMAIN)
 		for p in self.backend.processes():
 			self.backend.cancel_process(p)
 
 	def test_basic(self):
-		self.subtest_basic(self.backend)
+		self.subtest_backend_basic(self.backend)
+
+	def test_managed(self):
+		self.subtest_backend_managed(self.backend)
