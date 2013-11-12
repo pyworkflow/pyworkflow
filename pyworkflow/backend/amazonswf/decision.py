@@ -1,0 +1,43 @@
+import json
+
+from ...decision import ScheduleActivity, CompleteProcess, TerminateProcess
+
+class AmazonSWFDecision(object):
+    def __init__(self, decision):
+        if isinstance(decision, ScheduleActivity):
+            description = self.schedule_activity_description(decision)
+        elif isinstance(decision, CompleteProcess):
+            description = self.complete_process_description(decision)
+        elif isinstance(decision, TerminateProcess):
+            description = self.terminate_process_description(decision)
+
+        self.description = description
+
+    def schedule_activity_description(cls, decision):
+        return {
+            "decisionType": "ScheduleActivityTask",
+            "scheduleActivityTaskDecisionAttributes": {
+                "activityId": decision.id,
+                "activityType": {
+                  "name": decision.activity,
+                  "version": "1.0",
+                },
+                "control": None,
+                #"heartbeatTimeout": SWF_TASK_HEARTBEAT_TIMEOUT if step.autocomplete else SWF_TASK_SCHEDULE_TO_CLOSE_TIMEOUT,
+                "input": json.dumps(decision.input) if decision.input else None,
+                #"scheduleToCloseTimeout": SWF_TASK_SCHEDULE_TO_CLOSE_TIMEOUT,
+                #"scheduleToStartTimeout": SWF_TASK_SCHEDULE_TO_START_TIMEOUT,
+                #"startToCloseTimeout": str(step.timeout) if step.timeout else SWF_TASK_START_TO_CLOSE_TIMEOUT,
+                "taskList": {
+                    "name": decision.category or "default"
+                }
+            }
+        }
+
+    def complete_process_description(self, decision):
+        return {
+            "decisionType": "CompleteWorkflowExecution",
+            "completeWorkflowExecutionDecisionAttributes": {
+                "result": json.dumps(decision.result)
+            }
+        }

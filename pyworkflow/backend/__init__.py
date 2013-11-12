@@ -1,7 +1,8 @@
 class Backend(object):
-    DEFAULT_WORKFLOW_TIMEOUT = 31536000
-    DEFAULT_ACTIVITY_TIMEOUT = 31536000
-    DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT = 3600
+    DEFAULT_WORKFLOW_TIMEOUT = 31536000 # 365 days
+    DEFAULT_DECISION_TIMEOUT = 60 # 1 minute
+    DEFAULT_ACTIVITY_TIMEOUT = 31536000 # 365 days
+    DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT = 3600 # 1 hour
 
     def register_workflow(self, name, version="1.0", timeout=DEFAULT_WORKFLOW_TIMEOUT):
         raise NotImplementedError()
@@ -32,9 +33,6 @@ class Backend(object):
 
     def complete_activity_task(self, task, result=None):
         raise NotImplementedError()
-
-
-
 
 class MonitoredBackend(Backend):
     def __init__(self, primary_backend, monitor_backends):

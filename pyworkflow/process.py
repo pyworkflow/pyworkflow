@@ -1,23 +1,47 @@
 from uuid import uuid4
+from workflow import Workflow
 
 class Process(object):
-    """
-    Insight: Processes may need to contain execution state in order for 
-    backends to take action. Backends may override this class to provide that state.
-    """
-
-    def __init__(self, pid=None, workflow=None, workflow_version=None, input=None, history=None, parent=None):
-        self.id = pid or str(uuid4())
-        self.workflow = workflow
-        self.workflow_version = workflow_version
-        self.input = input
-        self.history = []
+    def __init__(self, workflow=None, id=None, input=None, history=[], parent=None, tags=None):
+        if isinstance(workflow, Workflow):
+            self._workflow = workflow.__class__.name
+        elif type(workflow) is type:
+            self._workflow = workflow.name
+        else:
+            self._workflow = str(workflow)
+            
+        self._id = id or str(uuid4())
+        self._parent = None
+        self._input = input
+        self._history = history
+        self._tags = None
+        
+    @property
+    def workflow(self):
+        return self._workflow
 
     @property
-    def tag(self):
-        return str(self.input)
+    def id(self):
+        return self._id
 
-class Event(object):
-    def __init__(self, activity, state):
-        self.activity = activity
-        self.state = state
+    @property
+    def parent(self):
+        return self._parent
+
+    @property
+    def input(self):
+        return self._input
+
+    @property
+    def history(self):
+        return self._history
+    
+    @property
+    def tags(self):
+        return self._tags
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    def __repr__(self):
+        return '[Process: %s (%s): %s, %s]' % (self.workflow, self.id, self.input, self.tags)
