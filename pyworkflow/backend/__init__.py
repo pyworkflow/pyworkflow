@@ -1,13 +1,10 @@
-class Backend(object):
-    DEFAULT_WORKFLOW_TIMEOUT = 31536000 # 365 days
-    DEFAULT_DECISION_TIMEOUT = 60 # 1 minute
-    DEFAULT_ACTIVITY_TIMEOUT = 31536000 # 365 days
-    DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT = 3600 # 1 hour
+from .. import Defaults
 
-    def register_workflow(self, name, version="1.0", timeout=DEFAULT_WORKFLOW_TIMEOUT):
+class Backend(object):
+    def register_workflow(self, name, version="1.0", timeout=Defaults.WORKFLOW_TIMEOUT):
         raise NotImplementedError()
 
-    def register_activity(self, name, version="1.0", category="default", timeout=DEFAULT_ACTIVITY_TIMEOUT, heartbeat_timeout=DEFAULT_ACTIVITY_HEARTBEAT_TIMEOUT):
+    def register_activity(self, name, version="1.0", category="default", scheduled_timeout=Defaults.ACTIVITY_SCHEDULED_TIMEOUT, execution_timeout=Defaults.ACTIVITY_EXECUTION_TIMEOUT, heartbeat_timeout=Defaults.ACTIVITY_HEARTBEAT_TIMEOUT):
         raise NotImplementedError()
 
     def processes(self):

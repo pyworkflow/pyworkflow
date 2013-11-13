@@ -17,7 +17,7 @@ class AmazonSWFDecision(object):
         return {
             "decisionType": "ScheduleActivityTask",
             "scheduleActivityTaskDecisionAttributes": {
-                "activityId": decision.id,
+                "activityId": str(decision.id),
                 "activityType": {
                   "name": decision.activity,
                   "version": "1.0",

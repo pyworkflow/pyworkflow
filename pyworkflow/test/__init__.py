@@ -1,8 +1,9 @@
 import unittest
 import mock
+from time import sleep
 
 from datetime import datetime
-
+from ..exceptions import TimedOutException
 from ..workflow import Workflow
 from ..process import Process
 from ..activity import Activity, ActivityMonitor, ActivityCompleted, ActivityFailed, ActivityAborted
@@ -25,6 +26,36 @@ class FooWorkflow(Workflow):
     def decide(self, process):
         if len(process.history) == 0:
             return ScheduleActivity(MultiplicationActivity, input=process.input)
+        else:
+            return CompleteProcess()
+
+class TimeoutActivity(Activity):
+    scheduled_timeout = 1
+    execution_timeout = 2
+    heartbeat_timeout = 1
+
+    def execute(self):
+        if self.input[0]:
+            sleep(self.input[0])
+        else:
+            for _ in range(0, 10):
+                sleep(float(self.input[1])/10.0)
+                self.heartbeat()
+        return True
+
+class TimeoutWorkflow(Workflow):
+    activities = [TimeoutActivity]
+
+    def decide(self, process):
+        if len(process.history) == 0:
+            # let it time out on schedule
+            return ScheduleActivity(TimeoutActivity, input=[0,0], id=1)
+        elif len(process.history) < 2:
+            # let it time out on heartbeat
+            return ScheduleActivity(TimeoutActivity, input=[2,0], id=2)
+        elif len(process.history) < 4:
+            # let it time out on execution
+            return ScheduleActivity(TimeoutActivity, input=[0,5], id=3)
         else:
             return CompleteProcess()
 
@@ -60,12 +91,6 @@ class WorkflowBasicTestCase(unittest.TestCase):
         assert isinstance(decision, CompleteProcess)
         process.history.append(DecisionEvent(decision))
 
-    def test_timeouts(self):
-        # activity scheduling timeouts
-        # activity completion timeouts
-        # activity heartbeat timeouts
-        assert False
-
 class WorkflowBackendTestCase(unittest.TestCase):
 
     def processes_approximately_equal(self, process1, process2):
@@ -92,6 +117,53 @@ class WorkflowBackendTestCase(unittest.TestCase):
             else:
                 assert False, "Unknown event type"
         return True
+
+    def subtest_backend_timeouts(self, backend):
+        manager = Manager(backend)
+        manager.register_workflow(TimeoutWorkflow)
+
+        # Start a new TimeoutWorkflow process
+        process = Process(workflow=TimeoutWorkflow)
+        manager.start_process(process)
+
+        # Decide initial activity
+        (task, workflow) = manager.next_decision()
+        decision = workflow.decide(task.process)
+        assert decision == ScheduleActivity(TimeoutActivity, input=[0,0], id=1)
+        manager.complete_task(task, decision)
+
+        # Let the schedule time-out hit
+        sleep(1)
+
+        # The task should be passed back to the decider
+        (task, workflow) = manager.next_decision()
+        decision = workflow.decide(task.process)
+        assert decision == ScheduleActivity(TimeoutActivity, input=[2,0], id=2)
+        manager.complete_task(task, decision)
+
+        # This time, execute the activity and time out before heartbeat
+        (task, activity) = manager.next_activity()
+        result = activity.execute()
+        try:
+            manager.complete_task(task, ActivityCompleted(result=result))
+            assert False, "should have timed out and not allowed completion"
+        except TimedOutException, e:
+            pass
+
+        # The task should be passed back to the decider
+        (task, workflow) = manager.next_decision()
+        decision = workflow.decide(task.process)
+        assert decision == ScheduleActivity(TimeoutActivity, input=[0,5], id=3)
+        manager.complete_task(task, decision)
+        
+        # This time, execute the activity and time out on execution
+        (task, activity) = manager.next_activity()
+        result = activity.execute()
+        try:
+            manager.complete_task(task, ActivityCompleted(result=result))
+            assert False, "should have timed out and not allowed completion"
+        except TimedOutException, e:
+            pass
 
     def subtest_backend_basic(self, backend):
         ''' Tests the basic backend functionality (no Workflow / Activity objects involved) '''

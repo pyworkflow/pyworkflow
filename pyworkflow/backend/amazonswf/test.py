@@ -6,7 +6,7 @@ AMAZON_SWF_REGION = 'us-east-1'
 try:
     from test_settings import *
 except:
-    raise Exception('Please supply test/settings.py with configuration flags')
+    raise Exception('Please supply test_settings.py with configuration flags')
 
 import unittest
 
@@ -24,3 +24,6 @@ class AmazonSWFBackendTestCase(WorkflowBackendTestCase):
 
 	def test_managed(self):
 		self.subtest_backend_managed(self.backend)
+
+	def test_timeouts(self):
+		self.subtest_backend_timeouts(self.backend)
