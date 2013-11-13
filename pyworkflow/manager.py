@@ -5,12 +5,12 @@ class Manager(object):
     """
     Handles the creation and execution of workflows.
 
-    # Create an instance of a task using a workflow manager
+    # Start a new process
     mgr = manager(backend, workflows)
     process = Process()
-    mgr.start(process)
+    mgr.start_process(process)
 
-    # Query an activity, execute and set result, and commit using workflow manager
+    # Query an activity, execute and commit result
     task = mgr.next()
     result = activity(task)
     mgr.complete_task(task, result)
@@ -26,12 +26,26 @@ class Manager(object):
 
     def register_workflow(self, workflow):
         for activity in workflow.activities:
-            self.activities[activity.name] = activity
-            self.backend.register_activity(activity.name)
+            self.register_activity(activity)
+
+        conf = {
+            'timeout': workflow.timeout
+        }
 
         self.workflows[workflow.name] = workflow
-        self.backend.register_workflow(workflow.name)
+        self.backend.register_workflow(workflow.name, **conf)
 
+    def register_activity(self, activity):
+        conf = {
+            'category': activity.category,
+            'scheduled_timeout': activity.scheduled_timeout,
+            'execution_timeout': activity.execution_timeout,
+            'heartbeat_timeout': activity.heartbeat_timeout
+        }
+
+        self.activities[activity.name] = activity
+        self.backend.register_activity(activity.name, **conf)
+        
     def start_process(self, process):
         self.backend.start_process(process)
 

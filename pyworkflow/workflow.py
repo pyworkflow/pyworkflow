@@ -1,4 +1,5 @@
 from util import classproperty
+from . import Defaults
 
 class Workflow(object):
     """ 
@@ -7,6 +8,7 @@ class Workflow(object):
     or signals the task to be completed or terminated.
     """
     activities = []
+    timeout = Defaults.WORKFLOW_TIMEOUT
 
     @classproperty
     def name(cls):
