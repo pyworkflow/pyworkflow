@@ -55,3 +55,15 @@ class Activity(object):
 
     def execute(self):
         raise NotImplementedError()
+
+class ActivityExecution(object):
+    def __init__(self, name, id, input=None):
+        self.name = name
+        self.id = id
+        self.input = input
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    def __repr__(self):
+        return 'ActivityExecution(%s, %s, %s)' % (self.name, self.id, self.input)

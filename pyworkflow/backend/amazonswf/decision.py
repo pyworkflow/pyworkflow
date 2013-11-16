@@ -1,6 +1,6 @@
 import json
 
-from ...decision import ScheduleActivity, CompleteProcess, TerminateProcess
+from ...decision import ScheduleActivity, CompleteProcess, CancelProcess
 
 class AmazonSWFDecision(object):
     def __init__(self, decision):
@@ -8,8 +8,10 @@ class AmazonSWFDecision(object):
             description = self.schedule_activity_description(decision)
         elif isinstance(decision, CompleteProcess):
             description = self.complete_process_description(decision)
-        elif isinstance(decision, TerminateProcess):
-            description = self.terminate_process_description(decision)
+        elif isinstance(decision, CancelProcess):
+            description = self.cancel_process_description(decision)
+        else:
+            raise Exception('Invalid decision type')
 
         self.description = description
 
@@ -41,3 +43,12 @@ class AmazonSWFDecision(object):
                 "result": json.dumps(decision.result)
             }
         }
+
+    def cancel_process_description(self, decision):
+        return {
+            "decisionType": "CancelWorkflowExecution",
+            "cancelWorkflowExecutionDecisionAttributes": {
+                "details": decision.details
+            }
+        }
+        

@@ -13,7 +13,7 @@ class Backend(object):
     def start_process(self, process):
         raise NotImplementedError()
     
-    def signal_process(self, process, signal, input=None):
+    def signal_process(self, process, signal, data=None):
         raise NotImplementedError()
 
     def cancel_process(self, process, details=None, reason=None):

@@ -2,8 +2,9 @@ import json
 from datetime import datetime
 
 from ...process import Process
-from ...event import Event, DecisionEvent, ActivityEvent
-from ...activity import ActivityCompleted, ActivityAborted, ActivityFailed
+from ...event import Event, DecisionEvent, ActivityEvent, SignalEvent
+from ...signal import Signal
+from ...activity import ActivityCompleted, ActivityAborted, ActivityFailed, ActivityTimedOut, ActivityExecution
 from ...decision import ScheduleActivity
 
 class AmazonSWFProcess(Process):
@@ -12,26 +13,37 @@ class AmazonSWFProcess(Process):
         event_type = description['eventType']
         event_dt = datetime.fromtimestamp(description['eventTimestamp'])
         attributes = description.get(event_type[0].lower() + event_type[1:] + 'EventAttributes', {})
-            
-        def related_activity():
+
+        def activity_event_with_result(result):
             scheduled_by = filter(lambda x: x['eventId'] == attributes['scheduledEventId'], related)[0]
-            return scheduled_by['activityTaskScheduledEventAttributes']['activityType']['name']
+            attrs = scheduled_by.get('activityTaskScheduledEventAttributes', None)
+            input = json.loads(attrs['input']) if attrs.get('input', None) else None
+            activity = ActivityExecution(attrs['activityType']['name'], attrs['activityId'], input)
+            return ActivityEvent(datetime=event_dt, activity=activity, result=result)
 
         if event_type == 'ActivityTaskScheduled':
             id = attributes['activityId']
             activity = attributes['activityType']['name']
-            input = json.loads(attributes['input'])
+            input = json.loads(attributes['input']) if attributes.get('input', None) else None
             return DecisionEvent(datetime=event_dt, decision=ScheduleActivity(id=id, activity=activity, input=input))
         elif event_type == 'ActivityTaskCompleted':
-            result = json.loads(attributes['result'])
-            return ActivityEvent(datetime=event_dt, activity=related_activity(), result=ActivityCompleted(result=result))
+            result = json.loads(attributes['result']) if 'result' in attributes.keys() else None
+            return activity_event_with_result(ActivityCompleted(result=result))
         elif event_type == 'ActivityTaskFailed':
-            reason = attributes['reason']
-            details = attributes['details']
-            return ActivityEvent(datetime=event_dt, activity=related_activity(), result=ActivityFailed(reason=reason, details=details))
+            reason = attributes.get('reason', None)
+            details = attributes.get('details', None)
+            res = ActivityFailed(reason=reason, details=details)
+            return activity_event_with_result(res)
         elif event_type == 'ActivityTaskCanceled':
-            details = attributes['details']
-            return ActivityEvent(datetime=event_dt, activity=related_activity(), result=ActivityAborted(details=details))
+            details = attributes.get('details', None)
+            return activity_event_with_result(ActivityAborted(details=details))
+        elif event_type == 'ActivityTaskTimedOut':
+            details = attributes.get('details', None)
+            return activity_event_with_result(ActivityTimedOut(details=details))
+        elif event_type == 'WorkflowExecutionSignaled':
+            data = json.loads(attributes['input']) if 'input' in attributes.keys() else None
+            name = attributes['signalName']
+            return SignalEvent(datetime=event_dt, signal=Signal(name=name, data=data))
         else:
             return None
 

@@ -68,10 +68,10 @@ class AmazonSWFBackend(Backend):
             self.domain, process.id, process.workflow, "1.0",
             input=json.dumps(process.input))
         
-    def signal_process(self, process, signal, input=None):
+    def signal_process(self, process, signal, data=None):
         self._swf.signal_workflow_execution(
             self.domain, signal, process.id, 
-            input=input)
+            input=json.dumps(data))
 
     def cancel_process(self, process, details=None, reason=None):
         self._swf.terminate_workflow_execution(

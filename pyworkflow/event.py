@@ -1,32 +1,4 @@
 from datetime import datetime
-#from decision import ScheduleActivity, CompleteWorkflow, TerminateWorkflow
-'''
-class Event(object):
-    class Type(object):
-        ACTIVITY_SCHEDULED = Type('ACTIVITY_SCHEDULED')
-        ACTIVITY_COMPLETED = Type('ACTIVITY_COMPLETED')
-        ACTIVITY_ABORTED = Type('ACTIVITY_ABORTED')
-        ACTIVITY_FAILED = Type('ACTIVITY_FAILED')
-        WORKFLOW_COMPLETED = Type('WORKFLOW_COMPLETED')
-        WORKFLOW_TERMINATED = Type('WORKFLOW_TERMINATED')
-
-        def __init__(self, name):
-            self.name = name
-
-    def __init__(self, event_type, **kwargs):
-        self.type = event_type
-        self.datetime = kwargs.get('datetime', datetime.now())
-
-    @classmethod
-    def from_decision(cls, decision):
-        if isinstance(decision, ScheduleActivity):
-            return Event(Event.Type.ACTIVITY_SCHEDULED, activity=decision.activity, input=decision.input)
-        elif isinstance(decision, CompleteWorkflow):
-            return Event(Event.Type.WORKFLOW_COMPLETED, result=decision.result)
-        elif isinstance(decision, TerminateWorkflow):
-            return Event(Event.Type.WORKFLOW_TERMINATED, reason=decision.reason)
-'''
-
 
 class Event(object):
     def __init__(self, **kwargs):
@@ -42,7 +14,7 @@ class DecisionEvent(Event):
         self.decision = decision
 
     def __repr__(self):
-        return '[DecisionEvent: %s]' % self.decision
+        return 'DecisionEvent(%s)' % (repr(self.decision))
 
 class ActivityEvent(Event):
     def __init__(self, activity, result, **kwargs):
@@ -52,4 +24,13 @@ class ActivityEvent(Event):
         self.result = result
 
     def __repr__(self):
-        return '[ActivityEvent: %s, %s]' % (self.activity, self.result)
+        return 'ActivityEvent(%s, %s)' % (self.activity, repr(self.result))
+
+class SignalEvent(Event):
+    def __init__(self, signal, **kwargs):
+        super(SignalEvent, self).__init__(**kwargs)
+
+        self.signal = signal
+
+    def __repr__(self):
+        return 'SignalEvent(%s)' % (repr(self.signal))
