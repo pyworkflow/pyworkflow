@@ -27,3 +27,6 @@ class AmazonSWFBackendTestCase(WorkflowBackendTestCase):
 
 	def test_timeouts(self):
 		self.subtest_backend_timeouts(self.backend)
+
+	def test_order(self):
+		self.subtest_backend_order(self.backend)

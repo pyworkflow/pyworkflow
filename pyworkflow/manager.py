@@ -49,10 +49,11 @@ class Manager(object):
     def start_process(self, process):
         self.backend.start_process(process)
 
-    #def signal_processes(self, signal, workflow_cls, input, min_datetime=None):
-    #    processes = self.backend.list_processes(workflow_cls.name, input.tag, min_datetime)
-    #    for process in processes:
-    #        self.backend.signal_process(process, signal)
+    def signal_process(self, process, signal):
+        self.backend.signal_process(process, signal.name, signal.data)
+
+    def processes(self):
+        return self.backend.processes()
 
     def next_decision(self):
         task = self.backend.poll_decision_task()

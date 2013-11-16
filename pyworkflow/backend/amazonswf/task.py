@@ -25,7 +25,5 @@ class AmazonSWFActivityTask(ActivityTask):
         token = description.get('taskToken', None)
         activity = description['activityType']['name']
         workflow = description.get('workflowType', {}).get('name', None)
-        #activity_version = description['activityType']['version']
-        input = json.loads(description.get('input'))
-        #process = AmazonSWFProcess.from_description(description)
+        input = json.loads(description.get('input')) if description.get('input', None) else None
         return AmazonSWFActivityTask(token, activity, input)
