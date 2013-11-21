@@ -33,27 +33,19 @@ class Activity(object):
         self._monitor = monitor
 
     @property
-    def monitor(self):
-        return self._monitor
-
-    @monitor.setter
-    def monitor(self, monitor):
-        self._monitor = monitor
-
-    @property
     def input(self):
         return self._input
 
-    @input.setter
-    def input(self, input):
-        self._input = input
+    @property
+    def monitor(self):
+        return self._monitor
 
     def heartbeat(self):
         ''' sends a heart beat to the monitor '''
         if self._monitor:
             self._monitor.heartbeat()
 
-    def execute(self):
+    def execute(self, monitor=None):
         raise NotImplementedError()
 
 class ActivityExecution(object):

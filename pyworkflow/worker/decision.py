@@ -22,7 +22,8 @@ class DecisionWorker():
 
     def run(self):
         while not self.stopped:
-            (task, workflow) = self.manager.next_decision()
+            task = self.manager.next_decision()
             if task:
+                workflow = self.manager.workflow_for_task(task)
                 decisions = self.decide(task, workflow)
                 self.manager.complete_task(task, decisions)

@@ -1,6 +1,5 @@
 class Task(object):
-	def __init__(self):
-		pass
+	pass
 
 class ActivityTask(Task):
 	def __init__(self, activity, input=None):

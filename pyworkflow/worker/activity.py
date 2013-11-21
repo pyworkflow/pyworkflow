@@ -13,9 +13,7 @@ class ActivityWorker(object):
         heartbeat_fn = lambda: self.manager.backend.heartbeat(task)
         return ActivityMonitor(heartbeat_fn)
 
-    def execute_task(self, task, activity):
-        activity.monitor = self.monitor_for_task(task)
-
+    def execute_activity(self, activity):
         try:
             result = activity.execute()
             return ActivityCompleted(result)
@@ -29,7 +27,8 @@ class ActivityWorker(object):
     def run(self):
         while not self.stopped:
             # Rely on the backend poll to be blocking
-            (task, activity) = self.manager.next_activity()
+            task = self.manager.next_activity()
             if task:
-                result = self.execute_task(task, activity)
+                activity = self.manager.activity_for_task(task, monitor=self.monitor_for_task(task))
+                result = self.execute_activity(activity)
                 self.manager.complete_task(task, result)

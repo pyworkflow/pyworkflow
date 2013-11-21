@@ -22,11 +22,9 @@ class CancelProcess(Decision):
 
 class ScheduleActivity(Decision):
     def __init__(self, activity, id=None, category=None, input=None):
-        if isinstance(activity, Activity):
-            self.activity = activity.__class__.name
-        elif type(activity) is type:
+        try:
             self.activity = activity.name
-        else:
+        except:
             self.activity = str(activity)
             
         self.id = id or str(uuid4())
@@ -38,7 +36,7 @@ class ScheduleActivity(Decision):
 
 class CancelActivity(Decision):
     def __init__(self, activity_or_id):
-        self.id = activity_or_id.id if isinstance(activity_or_id, ActivityExecution) else activity_or_id
+        self.id = activity_or_id.id if hasattr(activity_or_id, 'id') else activity_or_id
 
     def __repr__(self):
         return 'CancelActivity(%)' % self.id

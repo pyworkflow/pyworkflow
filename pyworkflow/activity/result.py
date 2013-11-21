@@ -1,12 +1,17 @@
 class ActivityResult(object):
+    def __init__(self):
+        pass
+        
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
-class InterruptedActivityResult(Exception, ActivityResult):
-    pass
+class InterruptedActivityResult(ActivityResult, Exception):
+    def __init__(self):
+        super(InterruptedActivityResult, self).__init__()
 
 class ActivityCompleted(ActivityResult):
     def __init__(self, result=None):
+        super(ActivityCompleted, self).__init__()
         self.result = result
 
     def __repr__(self):
@@ -15,6 +20,7 @@ class ActivityCompleted(ActivityResult):
 class ActivityAborted(InterruptedActivityResult):
     ''' The abortion of an activity '''
     def __init__(self, details=None):
+        super(ActivityAborted, self).__init__()
         self.details = details
 
     def __repr__(self):
@@ -23,6 +29,7 @@ class ActivityAborted(InterruptedActivityResult):
 class ActivityFailed(InterruptedActivityResult):
     ''' The failure of an activity '''
     def __init__(self, reason=None, details=None):
+        super(ActivityFailed, self).__init__()
         self.reason = reason
         self.details = details
 
@@ -32,6 +39,7 @@ class ActivityFailed(InterruptedActivityResult):
 class ActivityTimedOut(InterruptedActivityResult):
     ''' The time out of an activity '''
     def __init__(self, details=None):
+        super(ActivityTimedOut, self).__init__()
         self.details = details
 
     def __repr__(self):

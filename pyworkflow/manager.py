@@ -1,3 +1,4 @@
+import itertools
 from backend import Backend
 from task import DecisionTask, ActivityTask
 
@@ -18,24 +19,22 @@ class Manager(object):
 
     def __init__(self, backend, workflows=[]):
         self.backend = backend
-        self.activities = {}
-        self.workflows = {}
+        
+        self.workflows = dict((workflow.name, workflow) for workflow in workflows)
+        activities = itertools.chain(*map(lambda w: w.activities, workflows))
+        self.activities = dict((a.name, a) for a in activities)
 
-        for workflow in workflows:
-            self.register_workflow(workflow)
+        map(self._register_workflow_with_backend, workflows)
+        map(self._register_activity_with_backend, activities)
 
-    def register_workflow(self, workflow):
-        for activity in workflow.activities:
-            self.register_activity(activity)
-
+    def _register_workflow_with_backend(self, workflow):
         conf = {
             'timeout': workflow.timeout
         }
 
-        self.workflows[workflow.name] = workflow
         self.backend.register_workflow(workflow.name, **conf)
 
-    def register_activity(self, activity):
+    def _register_activity_with_backend(self, activity):
         conf = {
             'category': activity.category,
             'scheduled_timeout': activity.scheduled_timeout,
@@ -43,7 +42,6 @@ class Manager(object):
             'heartbeat_timeout': activity.heartbeat_timeout
         }
 
-        self.activities[activity.name] = activity
         self.backend.register_activity(activity.name, **conf)
         
     def start_process(self, process):
@@ -56,16 +54,18 @@ class Manager(object):
         return self.backend.processes()
 
     def next_decision(self):
-        task = self.backend.poll_decision_task()
-        if task:
-            workflow_cls = self.workflows[task.process.workflow]
-            return (task, workflow_cls())
+        return self.backend.poll_decision_task()
 
     def next_activity(self):
-        task = self.backend.poll_activity_task()
-        if task:
-            activity_cls = self.activities[task.activity]
-            return (task, activity_cls(task.input))
+        return self.backend.poll_activity_task()
+
+    def workflow_for_task(self, task):
+        workflow_cls = self.workflows[task.process.workflow]
+        return workflow_cls()
+
+    def activity_for_task(self, task, monitor=None):
+        activity_cls = self.activities[task.activity]
+        return activity_cls(task.input, monitor)
 
     def complete_task(self, task, result):
         if isinstance(task, DecisionTask):

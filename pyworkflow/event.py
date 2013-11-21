@@ -10,7 +10,6 @@ class Event(object):
 class DecisionEvent(Event):
     def __init__(self, decision, **kwargs):
         super(DecisionEvent, self).__init__(**kwargs)
-
         self.decision = decision
 
     def __repr__(self):
@@ -19,7 +18,6 @@ class DecisionEvent(Event):
 class ActivityEvent(Event):
     def __init__(self, activity, result, **kwargs):
         super(ActivityEvent, self).__init__(**kwargs)
-        
         self.activity = activity
         self.result = result
 
@@ -29,7 +27,6 @@ class ActivityEvent(Event):
 class SignalEvent(Event):
     def __init__(self, signal, **kwargs):
         super(SignalEvent, self).__init__(**kwargs)
-
         self.signal = signal
 
     def __repr__(self):

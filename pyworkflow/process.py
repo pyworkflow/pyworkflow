@@ -6,13 +6,11 @@ from decision import ScheduleActivity
 
 class Process(object):
     def __init__(self, workflow=None, id=None, input=None, history=[], parent=None, tags=None):
-        if isinstance(workflow, Workflow):
-            self._workflow = workflow.__class__.name
-        elif type(workflow) is type:
+        try:
             self._workflow = workflow.name
-        else:
+        except:
             self._workflow = str(workflow)
-            
+
         self._id = id or str(uuid4())
         self._parent = None
         self._input = input
@@ -46,7 +44,7 @@ class Process(object):
     def unseen_events(self):
         events = []
         for event in reversed(self.history):
-            if isinstance(event, DecisionEvent):
+            if hasattr(event, 'decision'):
                 break
             events.insert(0, event)
         return events
@@ -54,9 +52,9 @@ class Process(object):
     def unfinished_activities(self):
         activities = []
         for event in self.history:
-            if isinstance(event, DecisionEvent) and isinstance(event.decision, ScheduleActivity):
+            if hasattr(event, 'decision') and hasattr(event.decision, 'activity'):
                 activities.append(ActivityExecution(event.decision.activity, event.decision.id, event.decision.input))
-            elif isinstance(event, ActivityEvent) and event.activity in activities:
+            elif hasattr(event, 'activity') and event.activity in activities:
                 activities.remove(event.activity)
         return activities
 

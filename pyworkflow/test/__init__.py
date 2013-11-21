@@ -130,7 +130,7 @@ class WorkflowBasicTestCase(unittest.TestCase):
         # execute the activity
         heartbeat = mock.Mock()
         monitor = ActivityMonitor(heartbeat_fn=heartbeat)
-        result = MultiplicationActivity(decision.input, monitor=monitor).execute()
+        result = MultiplicationActivity(decision.input, monitor).execute()
         assert heartbeat.call_count == 1
         assert result == 6
         process.history.append(ActivityEvent(ActivityExecution('Multiplication', 123, [2,3]), ActivityCompleted(result)))
@@ -172,15 +172,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
         return True
 
     def subtest_backend_timeouts(self, backend):
-        manager = Manager(backend)
-        manager.register_workflow(TimeoutWorkflow)
+        manager = Manager(backend, workflows=[TimeoutWorkflow])
 
         # Start a new TimeoutWorkflow process
         process = Process(workflow=TimeoutWorkflow)
         manager.start_process(process)
 
         # Decide initial activity
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
         assert decision == ScheduleActivity(TimeoutActivity, input=[0,0], id=1)
         manager.complete_task(task, decision)
@@ -189,13 +189,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
         sleep(1)
 
         # The task should be passed back to the decider
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
         assert decision == ScheduleActivity(TimeoutActivity, input=[2,0], id=2)
         manager.complete_task(task, decision)
 
         # This time, execute the activity and time out before heartbeat
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         result = activity.execute()
         try:
             manager.complete_task(task, ActivityCompleted(result=result))
@@ -204,13 +206,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
             pass
 
         # The task should be passed back to the decider
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
         assert decision == ScheduleActivity(TimeoutActivity, input=[0,5], id=3)
         manager.complete_task(task, decision)
         
         # This time, execute the activity and time out on execution
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         result = activity.execute()
         try:
             manager.complete_task(task, ActivityCompleted(result=result))
@@ -344,15 +348,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
     def subtest_backend_managed(self, backend):
         # Create a manager and register the workflow
-        manager = Manager(backend)
-        manager.register_workflow(FooWorkflow)
+        manager = Manager(backend, workflows=[FooWorkflow])
 
         # Start a new FooWorkflow process
         process = Process(workflow=FooWorkflow, input=[2,3])
         manager.start_process(process)
 
         # Decide initial activity
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         assert workflow == FooWorkflow()
         assert task.process.workflow == 'Foo'
         assert task.process.input == [2,3]
@@ -365,7 +369,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         date_scheduled = datetime.now()
         
         # Run the activity
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         assert activity == MultiplicationActivity([2,3])
         assert task.activity == 'Multiplication'
         assert task.input == [2,3]
@@ -375,7 +380,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         date_completed = datetime.now()
 
         # Decide completion
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         assert task.process.workflow == 'Foo'
         assert self.processes_approximately_equal(task.process, Process(id=process.id, workflow='Foo', input=[2,3], history=[
             DecisionEvent(decision=ScheduleActivity('Multiplication', id=activity_id, input=[2,3]), datetime=date_scheduled),
@@ -387,8 +393,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
     def subtest_backend_order(self, backend):
         # Create a manager and register the workflow
-        manager = Manager(backend)
-        manager.register_workflow(OrderWorkflow)
+        manager = Manager(backend, workflows=[OrderWorkflow])
 
         #
         # Order that will fail in payment
@@ -398,16 +403,19 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.start_process(process)
         
         # Decide: -> payment processing
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Activity: abort
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityAborted())
         
         # Decide: -> terminate
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
@@ -422,35 +430,41 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.start_process(process)
         
         # Decide: -> payment processing
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Activity: complete
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
         
         # Decide: -> shipment x2
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Activity: complete one
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
         
         # Decide: -> nothing
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         assert decisions == []
         manager.complete_task(task, decisions)
 
         # Activity: signal other
-        (task2, activity2) = manager.next_activity()
+        task2 = manager.next_activity()
+        activity2 = manager.activity_for_task(task2)
         manager.signal_process(process, Signal('extra_shipment', data=300))
         
         # Decide: -> extra shipment
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
         decisions = workflow.decide(task.process)
         assert len(decisions) == 1
         assert isinstance(decisions[0], ScheduleActivity)
@@ -458,12 +472,14 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.complete_task(task, decisions)
 
         # Activity: complete both
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
         manager.complete_task(task2, ActivityCompleted())
         
         # Decide: -> complete
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
@@ -480,27 +496,32 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.start_process(process)
         
         # Decide: -> payment processing
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Activity: complete
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
         
         # Decide: -> shipment x2
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Activity: complete one, fail other
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityFailed())
         
         # Decide: -> cancel
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
         decisions = workflow.decide(task.process)
         assert len(decisions) == 1
         assert isinstance(decisions[0], ScheduleActivity)
@@ -508,11 +529,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.complete_task(task, decisions)
 
         # Activity: complete
-        (task, activity) = manager.next_activity()
+        task = manager.next_activity()
+        activity = manager.activity_for_task(task)
         manager.complete_task(task, ActivityCompleted())
         
         # Decide: -> terminate
-        (task, workflow) = manager.next_decision()
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
