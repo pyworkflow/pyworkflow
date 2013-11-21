@@ -22,6 +22,9 @@ class AmazonSWFActivityTask(ActivityTask):
 
     @staticmethod
     def from_description(description):
+        if not description.get('activityType'):
+            return None
+            
         token = description.get('taskToken', None)
         activity = description['activityType']['name']
         workflow = description.get('workflowType', {}).get('name', None)

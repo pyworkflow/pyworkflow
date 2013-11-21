@@ -27,6 +27,16 @@ class AmazonSWFBackend(Backend):
         self.domain = domain
         self._swf = boto.swf.layer1.Layer1(access_key_id, secret_access_key, region=self._get_region(region))
 
+    def _consume_until_exhaustion(self, request_fn):
+        next_page_token = None
+        while True:
+            response = request_fn(next_page_token)
+            yield response
+
+            next_page_token = response.get('next_page_token', None)
+            if not next_page_token:
+                break
+    '''
     def _consume_until_exhaustion(self, request_fn, consume_fn):
         next_page_token = None
         while True:
@@ -36,7 +46,7 @@ class AmazonSWFBackend(Backend):
             next_page_token = response.get('next_page_token', None)
             if not next_page_token:
                 break
-
+    '''
     def register_workflow(self, name, timeout=Defaults.WORKFLOW_TIMEOUT):
         try:
             self._swf.describe_workflow_type(self.domain, name, "1.0")
@@ -126,28 +136,22 @@ class AmazonSWFBackend(Backend):
             run_id = description['execution']['runId']
             workflow_id = description['execution']['workflowId']
 
-            def consume(response):
-                for event in response['events']:
-                    yield event
-            
-            event_gen = self._consume_until_exhaustion(
-                request_fn = lambda token: self._swf.get_workflow_execution_history(self.domain, run_id, workflow_id, next_page_token=token),
-                consume_fn = consume
+            response_iter = self._consume_until_exhaustion(
+                lambda token: self._swf.get_workflow_execution_history(self.domain, run_id, workflow_id, next_page_token=token),
             )
 
-            return {'events': list(event_gen)}
+            return {'events': [ev for response in response_iter for ev in response['events']]}
 
-        def process_gen():
-            def consume(response):
-                for description in response['executionInfos']:
-                    history = get_history(description)
-                    description.update(history)  
-                    yield AmazonSWFProcess.from_description(description)
+        def mk_process(description):
+            history = get_history(description)
+            description.update(history)  
+            return AmazonSWFProcess.from_description(description)                
 
-            return self._consume_until_exhaustion(
-                request_fn = lambda token: self._swf.list_open_workflow_executions(self.domain, oldest_timestamp, workflow_name=workflow, tag=input.tag if input else None, next_page_token=token),
-                consume_fn = consume
-            )
+        response_iter = self._consume_until_exhaustion(
+            lambda token: self._swf.list_open_workflow_executions(self.domain, oldest_timestamp, workflow_name=workflow, tag=input.tag if input else None, next_page_token=token)
+        )
+
+        return map(lambda d: mk_process(d), (d for response in response_iter for d in response['executionInfos']))
 
         return process_gen()
 

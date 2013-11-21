@@ -64,8 +64,8 @@ Then create a manager with a particular backend and register our workflows
 from pyworkflow.manager import Manager
 from pyworkflow.foo import FooBackend
 
-manager = Manager(backend=FooBackend())
-manager.register_workflow(FooWorkflow)
+workflows = [FooWorkflow]
+manager = Manager(backend=FooBackend(), workflows=workflows)
 ````
 
 To start an activity worker (in a separate thread/process; is blocking)

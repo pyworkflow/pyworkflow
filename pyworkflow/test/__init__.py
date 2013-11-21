@@ -55,7 +55,7 @@ class OrderWorkflow(DefaultWorkflow):
                 return []
 
             def is_interrupted_event(event):
-                return isinstance(event, ActivityEvent) and isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityAborted)
+                return isinstance(event, ActivityEvent) and (isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityAborted))
 
             if not filter(lambda ev: ev.activity.name == 'Shipment', filter(is_interrupted_event, process.unseen_events())):
                 return CompleteProcess()

@@ -1,3 +1,4 @@
+import itertools
 from util import classproperty
 from . import Defaults
 from event import ActivityEvent, DecisionEvent, SignalEvent
@@ -39,34 +40,23 @@ class DefaultWorkflow(Workflow):
     def respond_to_signal(self, process, signal):
         raise NotImplementedError()
 
-    def decide(self, process):
-        decisions = []
-
-        def ensure_list(decision_or_list):
-            if not decision_or_list:
-                return []
-            elif type(decision_or_list) == list:
-                return decision_or_list
+    def handle_event(self, event, process):
+        if isinstance(event, ActivityEvent):
+            if isinstance(event.result, ActivityCompleted):
+                return self.respond_to_completed_activity(process, event.activity, event.result)
             else:
-                return [decision_or_list]
+                return self.respond_to_interrupted_activity(process, event.activity, event.result)
+        elif isinstance(event, SignalEvent):
+            return self.respond_to_signal(process, event.signal)
 
-        def uniquify(lst):
-            unique = []
-            for x in lst:
-                if not x in unique:
-                    unique.append(x)
-            return unique
+    def decide(self, process):
+        ensure_iter = lambda x: x if hasattr(x, '__iter__') else [x]
 
-        if len(process.history) == 0:
-            return ensure_list(self.initiate(process))
-
-        for event in process.unseen_events():
-            if isinstance(event, ActivityEvent):
-                if isinstance(event.result, ActivityCompleted):
-                    decisions += ensure_list(self.respond_to_completed_activity(process, event.activity, event.result))
-                else:
-                    decisions += ensure_list(self.respond_to_interrupted_activity(process, event.activity, event.result))
-            elif isinstance(event, SignalEvent):
-                decisions += ensure_list(self.respond_to_signal(process, event.signal))
-
-        return uniquify(decisions)
+        if len(process.history):
+            print "Unseen:"
+            print process.unseen_events()
+            handler = lambda ev: filter(bool, ensure_iter(self.handle_event(ev, process)))
+            decisions = itertools.chain(*itertools.imap(handler, process.unseen_events()))
+            return reduce(lambda acc, d: acc+[d] if not d in acc else acc, decisions, [])
+        else:
+            return ensure_iter(self.initiate(process))

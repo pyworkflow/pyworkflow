@@ -50,6 +50,9 @@ class AmazonSWFProcess(Process):
     @classmethod
     def from_description(cls, description):
         execution_desc = description.get('workflowExecution', None) or description.get('execution', None)
+        if not execution_desc:
+            return None
+            
         pid = execution_desc['workflowId']
 
         workflow = description.get('workflowType', {}).get('name', None)

@@ -42,21 +42,25 @@ class Process(object):
         return self._tags
 
     def unseen_events(self):
-        events = []
-        for event in reversed(self.history):
-            if hasattr(event, 'decision'):
-                break
-            events.insert(0, event)
-        return events
+        def before_decision(iterable):
+            event = next(iterable, None)
+            return [] if not event or hasattr(event, 'decision') else [event] + before_decision(iterable)
+
+        return before_decision(reversed(self.history))
 
     def unfinished_activities(self):
-        activities = []
-        for event in self.history:
-            if hasattr(event, 'decision') and hasattr(event.decision, 'activity'):
-                activities.append(ActivityExecution(event.decision.activity, event.decision.id, event.decision.input))
-            elif hasattr(event, 'activity') and event.activity in activities:
-                activities.remove(event.activity)
-        return activities
+        def unfinished(iterable):
+            event = next(iterable, None)
+            if event is None:
+                return []
+            elif hasattr(event, 'decision') and hasattr(event.decision, 'activity'):
+                return unfinished(iterable) + [ActivityExecution(event.decision.activity, event.decision.id, event.decision.input)]
+            elif hasattr(event, 'activity'):
+                return filter(lambda x: x != event.activity, unfinished(iterable))
+            else:
+                return unfinished(iterable)
+
+        return unfinished(reversed(self.history))
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

@@ -57,5 +57,8 @@ class ActivityExecution(object):
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
     def __repr__(self):
         return 'ActivityExecution(%s, %s, %s)' % (self.name, self.id, self.input)

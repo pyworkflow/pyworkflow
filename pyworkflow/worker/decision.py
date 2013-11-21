@@ -9,16 +9,15 @@ class DecisionWorker():
     def decide(self, task, workflow):
         decisions = workflow.decide(task.process)
 
-        # Make sure we return a list
-        if not type(decisions) is list:
-            decisions = [decisions]
-
         # Convert Activity results to ScheduleActivity decisions
-        for idx,decision in enumerate(decisions):
+        def convert(decision):
             if isinstance(decision, Activity):
-                decisions[idx] = ScheduleActivity(activity=decision, input=task.process.input)
+                return ScheduleActivity(activity=decision, input=task.process.input)
+            else:
+                return decision
 
-        return decisions
+        # Make sure we return a list
+        return map(convert, decisions if hasattr(decisions, '__iter__') else [decisions])
 
     def run(self):
         while not self.stopped:
