@@ -11,6 +11,8 @@ class AmazonSWFDecisionTask(DecisionTask):
     @staticmethod
     def from_description(description):
         token = description.get('taskToken', None)
+        if not token:
+            return None
 
         process = AmazonSWFProcess.from_description(description)
         return AmazonSWFDecisionTask(token, process)
@@ -22,10 +24,10 @@ class AmazonSWFActivityTask(ActivityTask):
 
     @staticmethod
     def from_description(description):
-        if not description.get('activityType'):
-            return None
-            
         token = description.get('taskToken', None)
+        if not token:
+            return None
+
         activity = description['activityType']['name']
         workflow = description.get('workflowType', {}).get('name', None)
         input = json.loads(description.get('input')) if description.get('input', None) else None

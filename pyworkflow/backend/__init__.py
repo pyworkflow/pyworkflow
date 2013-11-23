@@ -19,10 +19,10 @@ class Backend(object):
     def cancel_process(self, process, details=None, reason=None):
         raise NotImplementedError()
 
-    def poll_activity_task(self):
+    def poll_activity_task(self, category="default", identity=None):
         raise NotImplementedError()
 
-    def poll_decision_task(self):
+    def poll_decision_task(self, identity=None):
         raise NotImplementedError()
 
     def complete_decision_task(self, task, decisions):
@@ -36,8 +36,8 @@ class MonitoredBackend(Backend):
         self.primary = primary_backend
         self.monitors = monitor_backends
 
-    def poll_activity_task(self):
-        return self.primary.poll_activity_task()
+    def poll_activity_task(self, category="default", identity=None):
+        return self.primary.poll_activity_task(category=category, identity=identity)
 
-    def poll_decision_task(self):
-        return self.primary.poll_decision_task()
+    def poll_decision_task(self, identity=None):
+        return self.primary.poll_decision_task(identity=identity)

@@ -1,3 +1,4 @@
+import logging
 import unittest
 import mock
 from time import sleep
@@ -11,6 +12,9 @@ from ..decision import ScheduleActivity, CompleteProcess, CancelProcess
 from ..event import DecisionEvent, ActivityEvent, SignalEvent
 from ..signal import Signal
 from ..manager import Manager
+from ..worker import ActivityWorker, DecisionWorker, WorkerThread
+
+logging.getLogger('workflow').setLevel('DEBUG')
 
 class MultiplicationActivity(Activity):
     def execute(self):
@@ -22,6 +26,10 @@ class MultiplicationActivity(Activity):
         return self.input[0] * self.input[1]
 
 class FooWorkflow(Workflow):
+    scheduled_timeout = 2
+    execution_timeout = 5
+    heartbeat_timeout = 5
+
     activities = [MultiplicationActivity]
 
     def decide(self, process):
@@ -171,7 +179,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
                 assert False, "Unknown event type"
         return True
 
-    def subtest_backend_timeouts(self, backend):
+    def construct_backend(self):
+        raise NotImplementedError()
+
+    def subtest_backend_timeouts(self):
+        backend = self.construct_backend()
         manager = Manager(backend, workflows=[TimeoutWorkflow])
 
         # Start a new TimeoutWorkflow process
@@ -222,8 +234,10 @@ class WorkflowBackendTestCase(unittest.TestCase):
         except TimedOutException, e:
             pass
 
-    def subtest_backend_basic(self, backend):
+    def subtest_backend_basic(self):
         ''' Tests the basic backend functionality (no Workflow / Activity objects involved) '''
+
+        backend = self.construct_backend()
 
         # Register workflow and activity types
         backend.register_workflow('test')
@@ -346,7 +360,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = list(backend.processes())
         assert processes == []
 
-    def subtest_backend_managed(self, backend):
+    def subtest_backend_managed(self):
+        backend = self.construct_backend()
+        
         # Create a manager and register the workflow
         manager = Manager(backend, workflows=[FooWorkflow])
 
@@ -391,7 +407,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)
 
-    def subtest_backend_order(self, backend):
+    def subtest_backend_order(self):
+        backend = self.construct_backend()
+        
         # Create a manager and register the workflow
         manager = Manager(backend, workflows=[OrderWorkflow])
 
@@ -542,3 +560,40 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify termination
         assert decisions == [CancelProcess()]
         assert list(manager.processes()) == []
+
+    def subtest_threads(self):
+        '''
+        Tests merely completion of a workflow handed to threads, not functional correctness.
+        '''
+
+        manager = Manager(self.construct_backend(), workflows=[FooWorkflow])
+
+        # Start a decider thread (use new backend not to share connection)
+        decider_mgr = manager.copy_with_backend(self.construct_backend())
+        # make sure backend is fully initialized
+        assert len(list(decider_mgr.processes())) == 0
+        decider = WorkerThread(DecisionWorker(decider_mgr))
+        decider.start()
+
+        # Start an activity worker thread
+        worker_mgr = manager.copy_with_backend(self.construct_backend())
+        # make sure backend is fully initialized
+        assert len(list(worker_mgr.processes())) == 0
+        worker = WorkerThread(ActivityWorker(worker_mgr))
+        worker.start()
+
+        # Start a new FooWorkflow process
+        process = Process(workflow=FooWorkflow, input=[2,3])
+        manager.start_process(process)
+
+        assert len(list(manager.processes())) == 1
+
+        # We expect this to take no more than 4 seconds
+        for _ in range(0,4):
+            if len(list(manager.processes())) == 0:
+                break
+            sleep(1)
+
+        decider.join(1)
+        worker.join(1)
+        assert len(list(manager.processes())) == 0

@@ -8,8 +8,14 @@ class ActivityTask(Task):
 		self.activity = activity
 		self.input = input
 
+	def __repr__(self):
+		return 'ActivityTask(%s, %s)' % (self.activity, self.input)
+
 class DecisionTask(Task):
 	def __init__(self, process):
 		super(DecisionTask, self).__init__()
 
 		self.process = process
+	
+	def __repr__(self):
+		return 'DecisionTask(%s)' % (self.process)

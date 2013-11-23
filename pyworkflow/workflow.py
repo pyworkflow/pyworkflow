@@ -53,8 +53,6 @@ class DefaultWorkflow(Workflow):
         ensure_iter = lambda x: x if hasattr(x, '__iter__') else [x]
 
         if len(process.history):
-            print "Unseen:"
-            print process.unseen_events()
             handler = lambda ev: filter(bool, ensure_iter(self.handle_event(ev, process)))
             decisions = itertools.chain(*itertools.imap(handler, process.unseen_events()))
             return reduce(lambda acc, d: acc+[d] if not d in acc else acc, decisions, [])

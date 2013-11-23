@@ -14,8 +14,6 @@ from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, Activi
 from .task import AmazonSWFDecisionTask, AmazonSWFActivityTask
 from .decision import AmazonSWFDecision
 
-import logging
-logging.getLogger('boto').setLevel(logging.CRITICAL)
         
 class AmazonSWFBackend(Backend):
     
@@ -89,6 +87,9 @@ class AmazonSWFBackend(Backend):
             details=details,
             reason=reason)
 
+    def heartbeat_activity_task(self, task):
+        pass
+
     def complete_decision_task(self, task, decisions):
         if not isinstance(task, AmazonSWFDecisionTask):
             raise ValueError('Can only act on AmazonSWFDecisionTask')
@@ -155,10 +156,10 @@ class AmazonSWFBackend(Backend):
 
         return process_gen()
 
-    def poll_activity_task(self, category="default"):
-        description = self._swf.poll_for_activity_task(self.domain, category)
+    def poll_activity_task(self, category="default", identity=None):
+        description = self._swf.poll_for_activity_task(self.domain, category, identity=identity)
         return AmazonSWFActivityTask.from_description(description) if description else None
 
-    def poll_decision_task(self):
-        description = self._swf.poll_for_decision_task(self.domain, "decisions")
+    def poll_decision_task(self, identity=None):
+        description = self._swf.poll_for_decision_task(self.domain, "decisions", identity=identity)
         return AmazonSWFDecisionTask.from_description(description) if description else None

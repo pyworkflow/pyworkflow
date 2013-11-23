@@ -18,11 +18,11 @@ class Manager(object):
     """
 
     def __init__(self, backend, workflows=[]):
-        self.backend = backend
+        self._backend = backend
         
-        self.workflows = dict((workflow.name, workflow) for workflow in workflows)
+        self._workflows = dict((workflow.name, workflow) for workflow in workflows)
         activities = itertools.chain(*map(lambda w: w.activities, workflows))
-        self.activities = dict((a.name, a) for a in activities)
+        self._activities = dict((a.name, a) for a in activities)
 
         map(self._register_workflow_with_backend, workflows)
         map(self._register_activity_with_backend, activities)
@@ -32,7 +32,7 @@ class Manager(object):
             'timeout': workflow.timeout
         }
 
-        self.backend.register_workflow(workflow.name, **conf)
+        self._backend.register_workflow(workflow.name, **conf)
 
     def _register_activity_with_backend(self, activity):
         conf = {
@@ -42,35 +42,44 @@ class Manager(object):
             'heartbeat_timeout': activity.heartbeat_timeout
         }
 
-        self.backend.register_activity(activity.name, **conf)
+        self._backend.register_activity(activity.name, **conf)
         
     def start_process(self, process):
-        self.backend.start_process(process)
+        self._backend.start_process(process)
 
     def signal_process(self, process, signal):
-        self.backend.signal_process(process, signal.name, signal.data)
+        self._backend.signal_process(process, signal.name, signal.data)
+
+    def heartbeat(self, task):
+        self._backend.heartbeat(task)
 
     def processes(self):
-        return self.backend.processes()
+        return self._backend.processes()
 
-    def next_decision(self):
-        return self.backend.poll_decision_task()
+    def next_decision(self, identity=None):
+        return self._backend.poll_decision_task(identity=identity)
 
-    def next_activity(self):
-        return self.backend.poll_activity_task()
+    def next_activity(self, identity=None):
+        return self._backend.poll_activity_task(identity=identity)
 
     def workflow_for_task(self, task):
-        workflow_cls = self.workflows[task.process.workflow]
+        workflow_cls = self._workflows[task.process.workflow]
         return workflow_cls()
 
     def activity_for_task(self, task, monitor=None):
-        activity_cls = self.activities[task.activity]
+        activity_cls = self._activities[task.activity]
         return activity_cls(task.input, monitor)
 
     def complete_task(self, task, result):
         if isinstance(task, DecisionTask):
-            self.backend.complete_decision_task(task, result)
+            self._backend.complete_decision_task(task, result)
         elif isinstance(task, ActivityTask):
-            self.backend.complete_activity_task(task, result)
+            self._backend.complete_activity_task(task, result)
         else:
             raise ValueError('unsupported task type')
+
+    def copy_with_backend(self, backend):
+        return Manager(backend, self._workflows.values())
+
+    def __repr__(self):
+        return 'Manager(%s)' % self._backend.__class__.__name__
