@@ -1,13 +1,13 @@
 from .. import Defaults
 
 class Backend(object):
-    def register_workflow(self, name, version="1.0", timeout=Defaults.WORKFLOW_TIMEOUT):
+    def register_workflow(self, name, version="1.0", timeout=Defaults.WORKFLOW_TIMEOUT, decision_timeout=Defaults.DECISION_TIMEOUT):
         raise NotImplementedError()
 
     def register_activity(self, name, version="1.0", category="default", scheduled_timeout=Defaults.ACTIVITY_SCHEDULED_TIMEOUT, execution_timeout=Defaults.ACTIVITY_EXECUTION_TIMEOUT, heartbeat_timeout=Defaults.ACTIVITY_HEARTBEAT_TIMEOUT):
         raise NotImplementedError()
 
-    def processes(self):
+    def processes(self, workflow=None, tag=None):
         raise NotImplementedError()     
     
     def start_process(self, process):
@@ -23,6 +23,9 @@ class Backend(object):
         raise NotImplementedError()
 
     def poll_decision_task(self, identity=None):
+        raise NotImplementedError()
+
+    def heartbeat_activity_task(self, task):
         raise NotImplementedError()
 
     def complete_decision_task(self, task, decisions):

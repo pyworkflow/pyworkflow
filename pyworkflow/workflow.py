@@ -12,6 +12,7 @@ class Workflow(object):
     """
     activities = []
     timeout = Defaults.WORKFLOW_TIMEOUT
+    decision_timeout = Defaults.DECISION_TIMEOUT
 
     @classproperty
     def name(cls):

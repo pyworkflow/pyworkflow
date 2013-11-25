@@ -8,8 +8,11 @@ class Manager(object):
 
     # Start a new process
     mgr = manager(backend, workflows)
-    process = Process()
+    process = Process(workflow=FooWorkflow, tags=["foo", "bar"])
     mgr.start_process(process)
+
+    # Find the process
+    mgr.processes(workflow=FooWorkflow, tag="foo")
 
     # Query an activity, execute and commit result
     task = mgr.next()
@@ -28,21 +31,22 @@ class Manager(object):
         map(self._register_activity_with_backend, activities)
 
     def _register_workflow_with_backend(self, workflow):
-        conf = {
-            'timeout': workflow.timeout
+        kwargs = {
+            'timeout': workflow.timeout,
+            'decision_timeout': workflow.decision_timeout
         }
 
-        self._backend.register_workflow(workflow.name, **conf)
+        self._backend.register_workflow(workflow.name, **kwargs)
 
     def _register_activity_with_backend(self, activity):
-        conf = {
+        kwargs = {
             'category': activity.category,
             'scheduled_timeout': activity.scheduled_timeout,
             'execution_timeout': activity.execution_timeout,
             'heartbeat_timeout': activity.heartbeat_timeout
         }
 
-        self._backend.register_activity(activity.name, **conf)
+        self._backend.register_activity(activity.name, **kwargs)
         
     def start_process(self, process):
         self._backend.start_process(process)
@@ -51,10 +55,14 @@ class Manager(object):
         self._backend.signal_process(process, signal.name, signal.data)
 
     def heartbeat(self, task):
-        self._backend.heartbeat(task)
+        self._backend.heartbeat_activity_task(task)
 
-    def processes(self):
-        return self._backend.processes()
+    def processes(self, workflow=None, tag=None):
+        workflow_name = None
+        if workflow:
+            workflow_name = workflow.name if hasattr(workflow, 'name') else str(workflow)
+        
+        return self._backend.processes(workflow=workflow_name, tag=tag)
 
     def next_decision(self, identity=None):
         return self._backend.poll_decision_task(identity=identity)

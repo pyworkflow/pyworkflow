@@ -182,7 +182,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
     def construct_backend(self):
         raise NotImplementedError()
 
-    def subtest_backend_timeouts(self):
+    def subtest_timeouts(self):
         backend = self.construct_backend()
         manager = Manager(backend, workflows=[TimeoutWorkflow])
 
@@ -234,7 +234,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         except TimedOutException, e:
             pass
 
-    def subtest_backend_basic(self):
+    def subtest_basic(self):
         ''' Tests the basic backend functionality (no Workflow / Activity objects involved) '''
 
         backend = self.construct_backend()
@@ -244,15 +244,37 @@ class WorkflowBackendTestCase(unittest.TestCase):
         backend.register_activity('double')
 
         # Start a new workflow process
-        backend.start_process(Process(id='1234', workflow='test', input=2))
+        backend.start_process(Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"]))
+        backend.start_process(Process(id='5678', workflow='test', input=3, tags=["process-5678"]))
 
         # Verify we can read the process back
+        processes = sorted(list(backend.processes()), key=lambda p: p.id)
+
+        assert processes == [
+            Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[]),
+            Process(id='5678', workflow='test', input=3, tags=["process-5678"], history=[])
+        ]
+
+        # Verify we can read it back by tags
+        processes = list(backend.processes(tag="foo"))
+        assert processes == [Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[])]
+        processes = sorted(list(backend.processes(workflow="test")), key=lambda p: p.id)
+        assert processes == [
+            Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[]),
+            Process(id='5678', workflow='test', input=3, tags=["process-5678"], history=[])
+        ]
+
+        # Terminate the second process
+        processes = list(backend.processes(tag="process-5678"))
+        backend.cancel_process(processes[0])
         processes = list(backend.processes())
-        assert processes == [Process(id='1234', workflow='test', input=2, history=[])]
+        assert processes == [
+            Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[]),
+        ]
 
         # Verify we get the first decision task back
         task = backend.poll_decision_task()
-        assert task.process == Process(id='1234', workflow='test', input=2, history=[])
+        assert task.process == Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[])
         
         # Execute the decision task (schedule activity)
         activity_id = '5678'
@@ -262,7 +284,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled)
             ]))
 
@@ -272,7 +294,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify the signal is in the history
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123}))
             ]))
@@ -289,7 +311,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed)
@@ -308,7 +330,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
@@ -329,7 +351,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
@@ -343,7 +365,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = backend.poll_decision_task()      
         assert task.process.workflow == 'test'
         # Verify the history is there in the task as well
-        assert self.processes_approximately_equal(task.process, Process(id='1234', workflow='test', input=2, history=[
+        assert self.processes_approximately_equal(task.process, Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
@@ -360,7 +382,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = list(backend.processes())
         assert processes == []
 
-    def subtest_backend_managed(self):
+    def subtest_managed(self):
         backend = self.construct_backend()
         
         # Create a manager and register the workflow
@@ -399,7 +421,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         assert task.process.workflow == 'Foo'
-        assert self.processes_approximately_equal(task.process, Process(id=process.id, workflow='Foo', input=[2,3], history=[
+        assert self.processes_approximately_equal(task.process, Process(id=process.id, workflow='Foo', input=[2,3], tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('Multiplication', id=activity_id, input=[2,3]), datetime=date_scheduled),
             ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed)
             ]))
@@ -407,7 +429,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)
 
-    def subtest_backend_order(self):
+    def subtest_order(self):
         backend = self.construct_backend()
         
         # Create a manager and register the workflow
@@ -417,8 +439,14 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Order that will fail in payment
         #
         # Start order workflow
-        process = Process(workflow=OrderWorkflow, input={'items': [100, 200]})
+        process = Process(workflow=OrderWorkflow, input={'items': [100, 200]}, tags=["order-1", "foo", "bar"])
         manager.start_process(process)
+
+        read_back = list(manager.processes(workflow=OrderWorkflow))
+        assert read_back == [process]
+        read_back = list(manager.processes(tag="order-1"))
+        assert read_back == [process]
+        
         
         # Decide: -> payment processing
         task = manager.next_decision()
