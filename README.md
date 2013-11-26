@@ -4,11 +4,12 @@
 
 pyworkflow supports the easy implementation of workflows, and handling the
 execution of workflow processes, across multiple backends. Its API is largely
-based on that of Amazon Simple Workflow Framework (SWF). Different backends can
-be used allowing to leverage the full power of workflows without committing to
-any single execution environment. One could imagine building a backend on a
-generic queueing system or any generic database. One could also use a full-
-fledged solution like Amazon SWF as a backend.
+based on that of Amazon Simple Workflow Framework (SWF). Different backends
+can be used allowing to leverage the full power of workflows without
+committing to any single execution environment. pyworkflow was initially
+written as an abstraction layer around Amazon SWF. However, different backends
+are included that. One could further imagine building a backend on a generic
+queueing system or any generic database.
 
 ## Usage
 
@@ -95,6 +96,19 @@ from pyworkflow.backend.amazonswf import AmazonSWFBackend
 from pyworkflow.manager import Manager
 
 backend = AmazonSWFBackend(ACCESS_KEY_ID, SECRET_ACCESS_KEY, region='us-east-1', domain='foo.bar')
+manager = Manager(backend=backend)
+````
+
+### Memory
+
+MemoryBackend provides a rudimentary in-memory backend. It is mainly useful
+for testing and development purposes. Be aware that it is not thread-safe.
+
+````
+from pyworkflow.backend.memory import MemoryBackend
+from pyworkflow.manager import Manager
+
+backend = MemoryBackend()
 manager = Manager(backend=backend)
 ````
 
