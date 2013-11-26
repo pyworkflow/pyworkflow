@@ -5,7 +5,7 @@ from activity import ActivityExecution
 from decision import ScheduleActivity
 
 class Process(object):
-    def __init__(self, workflow=None, id=None, input=None, history=None, parent=None, tags=None):
+    def __init__(self, workflow=None, id=None, input=None, tags=None, history=None, parent=None):
         try:
             self._workflow = workflow.name
         except:

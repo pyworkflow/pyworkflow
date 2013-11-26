@@ -1,10 +1,6 @@
 import unittest
 
-from boto import config
-
-from ... import Defaults
 from ...test import WorkflowBackendTestCase
-
 from . import MemoryBackend
 
 class MemoryBackendTestCase(WorkflowBackendTestCase):

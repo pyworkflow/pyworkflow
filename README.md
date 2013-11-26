@@ -91,6 +91,9 @@ manager.start_process(process)
 
 ### Amazon Simple Workflow Framework
 
+AmazonSWFBackend supports integration of pyworkflow with Amazon's Simple
+Workflow Framework service.
+
 ````
 from pyworkflow.backend.amazonswf import AmazonSWFBackend
 from pyworkflow.manager import Manager
@@ -110,6 +113,23 @@ from pyworkflow.manager import Manager
 
 backend = MemoryBackend()
 manager = Manager(backend=backend)
+````
+
+### Blinker
+
+BlinkerBackend wraps around any other backend and emits blinker signals on
+important runtime events on activities and decisions.
+
+````
+from pyworkflow.backend.foo import FooBackend
+from pyworkflow.backend.blinker import BlinkerBackend
+from pyworkflow.manager import Manager
+
+backend = BlinkerBackend(FooBackend())
+manager = Manager(backend=backend)
+
+# listen to process started signal
+BlinkerBackend.on_process_started.connect(foo)
 ````
 
 ## Architecture
