@@ -25,11 +25,7 @@ class AmazonSWFDecision(object):
                   "version": "1.0",
                 },
                 "control": None,
-                #"heartbeatTimeout": SWF_TASK_HEARTBEAT_TIMEOUT if step.autocomplete else SWF_TASK_SCHEDULE_TO_CLOSE_TIMEOUT,
                 "input": json.dumps(decision.input) if decision.input else None,
-                #"scheduleToCloseTimeout": SWF_TASK_SCHEDULE_TO_CLOSE_TIMEOUT,
-                #"scheduleToStartTimeout": SWF_TASK_SCHEDULE_TO_START_TIMEOUT,
-                #"startToCloseTimeout": str(step.timeout) if step.timeout else SWF_TASK_START_TO_CLOSE_TIMEOUT,
                 "taskList": {
                     "name": decision.category or "default"
                 }

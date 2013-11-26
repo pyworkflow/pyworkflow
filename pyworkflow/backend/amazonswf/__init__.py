@@ -1,5 +1,3 @@
-#from .. import Backend, ActivityTask, DecisionTask, Process
-
 import json
 import uuid
 import time
@@ -124,14 +122,12 @@ class AmazonSWFBackend(Backend):
             else:
                 raise e
     
-    def processes(self, workflow=None, tag=None, after_date=None):
+    def processes(self, workflow=None, tag=None):
         if workflow and tag:
             raise Exception('Amazon SWF does not support filtering on "workflow" and "tag" at the same time')
 
-        if not after_date:
-            # Max lifetime of workflow executions in SWF is 1 year
-            after_date = datetime.now() - timedelta(days=365)
-
+        # Max lifetime of workflow executions in SWF is 1 year
+        after_date = datetime.now() - timedelta(days=365)
         oldest_timestamp = time.mktime(after_date.timetuple())
 
         def get_history(description):

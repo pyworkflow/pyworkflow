@@ -5,7 +5,7 @@ from activity import ActivityExecution
 from decision import ScheduleActivity
 
 class Process(object):
-    def __init__(self, workflow=None, id=None, input=None, history=[], parent=None, tags=[]):
+    def __init__(self, workflow=None, id=None, input=None, history=None, parent=None, tags=None):
         try:
             self._workflow = workflow.name
         except:
@@ -14,8 +14,8 @@ class Process(object):
         self._id = id or str(uuid4())
         self._parent = None
         self._input = input
-        self._history = history
-        self._tags = tags
+        self._history = history or []
+        self._tags = tags or []
         
     @property
     def workflow(self):

@@ -24,11 +24,11 @@ class Manager(object):
         self._backend = backend
         
         self._workflows = dict((workflow.name, workflow) for workflow in workflows)
-        activities = itertools.chain(*map(lambda w: w.activities, workflows))
+        activities = list(itertools.chain(*map(lambda w: w.activities, workflows)))
         self._activities = dict((a.name, a) for a in activities)
 
-        map(self._register_workflow_with_backend, workflows)
-        map(self._register_activity_with_backend, activities)
+        map(lambda w: self._register_workflow_with_backend(w), workflows)
+        map(lambda a: self._register_activity_with_backend(a), activities)
 
     def _register_workflow_with_backend(self, workflow):
         kwargs = {
@@ -53,6 +53,9 @@ class Manager(object):
 
     def signal_process(self, process, signal):
         self._backend.signal_process(process, signal.name, signal.data)
+
+    def cancel_process(self, process, details=None, reason=None):
+        self._backend.cancel_process(process, details=details, reason=reason)
 
     def heartbeat(self, task):
         self._backend.heartbeat_activity_task(task)

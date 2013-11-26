@@ -9,9 +9,6 @@ except:
     raise Exception('Please supply test_settings.py with configuration flags')
 
 import unittest
-import socket
-
-from nose import with_setup
 
 from boto import config
 
