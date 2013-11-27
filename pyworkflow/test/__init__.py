@@ -409,7 +409,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Run the activity
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
-        assert activity == MultiplicationActivity([2,3])
+        assert activity == MultiplicationActivity(task)
         assert task.activity == 'Multiplication'
         assert task.input == [2,3]
         result = activity.execute()

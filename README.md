@@ -22,6 +22,9 @@ from pyworkflow.activity import Activity, ActivityAborted
 
 class MultiplicationActivity(Activity):
 
+	scheduled_timeout = 300 # max seconds in queue
+	execution_timeout = 10  # max execution duration
+
 	def execute(self):
 		if not type(self.input) == list and not len(input) == 2:
 			raise ValueError("invalid input")
@@ -143,10 +146,11 @@ returns decisions on a process by means of Decision objects.
 
 ### Activity
 
-Activity specifies the logic of some business function. It is used to execute
-ActivityTasks. It may need to let the invoker know it's still active from time
-to time by sending heartbeats. An ActivityMonitor can be set on an activity for
-that purpose. Activity returns results by means of an ActivityResult object.
+Activity specifies the logic of some business function. It is instantiated to
+execute ActivityTasks. It may need to let the invoker know it's still active
+from time to time by sending heartbeats. An ActivityMonitor can be set on an
+activity for that purpose. Activity returns results by means of an
+ActivityResult object.
 
 ### Process
 

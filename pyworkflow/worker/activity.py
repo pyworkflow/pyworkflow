@@ -18,7 +18,12 @@ class ActivityWorker(object):
     def execute_activity(self, activity):
         try:
             result = activity.execute()
-            return ActivityCompleted(result)
+
+            if isinstance(result, ActivityResult):
+                return result
+            elif activity.auto_complete:
+                return ActivityCompleted(result)
+
         except ActivityAborted, a:
             return a
         except ActivityFailed, f:
@@ -33,7 +38,9 @@ class ActivityWorker(object):
             logger.info("Worker %s: Aborted %s: %s" % (self.name, task, result))
         elif isinstance(result, ActivityFailed):
             logger.warning("Worker %s: Failed %s: %s" % (self.name, task, result))
-
+        elif result is None:
+            logger.info("Worker %s: Handed off %s" % (self.name, task))
+        
     def step(self, logger=None):
         # Rely on the backend poll to be blocking
         task = self.manager.next_activity(identity=self.name)
@@ -46,8 +53,9 @@ class ActivityWorker(object):
 
             if logger:
                 self.log_result(task, result, logger)
-
-            self.manager.complete_task(task, result)
+        
+            if result:
+                self.manager.complete_task(task, result)
 
     def __repr__(self):
         return 'ActivityWorker(%s, %s)' % (self.manager, self.name)

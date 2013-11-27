@@ -12,16 +12,6 @@ from ...task import *
 from ...signal import *
 from ... import Defaults
 
-class MemoryActivityTask(ActivityTask):
-    def __init__(self, run_id, *args, **kwargs):
-        super(MemoryActivityTask, self).__init__(*args, **kwargs)
-        self.run_id = run_id
-
-class MemoryDecisionTask(DecisionTask):
-    def __init__(self, run_id, *args, **kwargs):
-        super(MemoryDecisionTask, self).__init__(*args, **kwargs)
-        self.run_id = run_id    
-
 class MemoryBackend(Backend):
     '''
     Non-thread-safe in-memory workflow backend. Primarily for testing purposes.
@@ -122,7 +112,7 @@ class MemoryBackend(Backend):
         self._time_out_activities()
 
         # find the process as we know it
-        activity = self.running_activities.get(task.run_id)
+        activity_execution = self.running_activities.get(task.context['run_id'])
         # replace with new heartbeat timeout
         self.running_activities.remove(activity)        
         activity[3] = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
@@ -135,7 +125,7 @@ class MemoryBackend(Backend):
             decisions = [decisions]
 
         # find the process as we know it
-        decision = self.running_decisions.get(task.run_id)
+        decision = self.running_decisions.get(task.context['run_id'])
         if not decision:
             raise TimedOutException()
             
@@ -162,7 +152,7 @@ class MemoryBackend(Backend):
         self._time_out_activities()
 
         # find the process as we know it
-        activity = self.running_activities.get(task.run_id)
+        activity = self.running_activities.get(task.context['run_id'])
         if not activity:
             raise TimedOutException()
 
@@ -213,7 +203,7 @@ class MemoryBackend(Backend):
         heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
         self.running_activities[run_id] = (activity_execution, process, expiration, heartbeat_expiration)
 
-        return MemoryActivityTask(run_id, activity_execution.name, input=activity_execution.input)
+        return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id})
 
     def poll_decision_task(self, identity=None):
         # time-out expired activities
@@ -233,5 +223,5 @@ class MemoryBackend(Backend):
         expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['timeout'])
         self.running_decisions[run_id] = (process, expiration)
         
-        return MemoryDecisionTask(run_id, process)
+        return DecisionTask(process, context={'run_id': run_id})
         

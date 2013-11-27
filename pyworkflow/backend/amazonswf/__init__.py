@@ -9,7 +9,7 @@ from .. import Backend
 from ...exceptions import TimedOutException
 from ... import Defaults
 from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, ActivityAborted
-from .task import AmazonSWFDecisionTask, AmazonSWFActivityTask
+from .task import decision_task_from_description, activity_task_from_description
 from .decision import AmazonSWFDecision
 
         
@@ -80,21 +80,15 @@ class AmazonSWFBackend(Backend):
             reason=reason)
 
     def heartbeat_activity_task(self, task):
-        if not isinstance(task, AmazonSWFActivityTask):
-            raise ValueError('Can only act on AmazonSWFActivityTask')
-            
-        self._swf.record_activity_task_heartbeat(task.token)
+        self._swf.record_activity_task_heartbeat(task.context['token'])
 
     def complete_decision_task(self, task, decisions):
-        if not isinstance(task, AmazonSWFDecisionTask):
-            raise ValueError('Can only act on AmazonSWFDecisionTask')
-
         if not type(decisions) is list:
             decisions = [decisions]
         descriptions = [AmazonSWFDecision(d).description for d in decisions]
 
         try:
-            self._swf.respond_decision_task_completed(task.token, 
+            self._swf.respond_decision_task_completed(task.context['token'], 
                 decisions=descriptions,
                 execution_context=None)
         except SWFResponseError, e:
@@ -104,16 +98,13 @@ class AmazonSWFBackend(Backend):
                 raise e
 
     def complete_activity_task(self, task, result=None):
-        if not isinstance(task, AmazonSWFActivityTask):
-            raise ValueError('Can only act on AmazonSWFActivityTask')
-
         try:
             if isinstance(result, ActivityCompleted):
-                self._swf.respond_activity_task_completed(task.token, result=json.dumps(result.result))
+                self._swf.respond_activity_task_completed(task.context['token'], result=json.dumps(result.result))
             elif isinstance(result, ActivityAborted):
-                self._swf.respond_activity_task_canceled(task.token, details=result.details)
+                self._swf.respond_activity_task_canceled(task.context['token'], details=result.details)
             elif isinstance(result, ActivityFailed):
-                self._swf.respond_activity_task_failed(task.token, details=result.details, reason=result.reason)
+                self._swf.respond_activity_task_failed(task.context['token'], details=result.details, reason=result.reason)
             else:
                 raise ValueError('Expected result of type in [ActivityCompleted, ActivityAborted, ActivityFailed]')
         except SWFResponseError, e:
@@ -155,8 +146,8 @@ class AmazonSWFBackend(Backend):
 
     def poll_activity_task(self, category="default", identity=None):
         description = self._swf.poll_for_activity_task(self.domain, category, identity=identity)
-        return AmazonSWFActivityTask.from_description(description) if description else None
+        return activity_task_from_description(description) if description else None
 
     def poll_decision_task(self, identity=None):
         description = self._swf.poll_for_decision_task(self.domain, "decisions", identity=identity)
-        return AmazonSWFDecisionTask.from_description(description) if description else None
+        return decision_task_from_description(description) if description else None

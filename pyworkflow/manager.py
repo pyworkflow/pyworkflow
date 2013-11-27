@@ -79,7 +79,7 @@ class Manager(object):
 
     def activity_for_task(self, task, monitor=None):
         activity_cls = self._activities[task.activity]
-        return activity_cls(task.input, monitor)
+        return activity_cls(task=task, monitor=monitor)
 
     def complete_task(self, task, result):
         if isinstance(task, DecisionTask):

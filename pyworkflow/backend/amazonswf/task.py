@@ -1,34 +1,24 @@
 import json
 
+from ...activity import ActivityExecution
 from ...task import DecisionTask, ActivityTask
 from .process import AmazonSWFProcess
 
-class AmazonSWFDecisionTask(DecisionTask):
-    def __init__(self, token, process):
-        super(AmazonSWFDecisionTask, self).__init__(process)
-        self.token = token
+def decision_task_from_description(description):
+    token = description.get('taskToken', None)
+    if not token:
+        return None
 
-    @staticmethod
-    def from_description(description):
-        token = description.get('taskToken', None)
-        if not token:
-            return None
+    process = AmazonSWFProcess.from_description(description)
+    return DecisionTask(process, context={'token': token})
 
-        process = AmazonSWFProcess.from_description(description)
-        return AmazonSWFDecisionTask(token, process)
+def activity_task_from_description(description):
+    token = description.get('taskToken', None)
+    if not token:
+        return None
 
-class AmazonSWFActivityTask(ActivityTask):
-    def __init__(self, token, *args, **kwargs):
-        super(AmazonSWFActivityTask, self).__init__(*args, **kwargs)
-        self.token = token
+    activity_id = description['activityId']
+    activity = description['activityType']['name']
+    input = json.loads(description.get('input')) if description.get('input', None) else None
 
-    @staticmethod
-    def from_description(description):
-        token = description.get('taskToken', None)
-        if not token:
-            return None
-
-        activity = description['activityType']['name']
-        workflow = description.get('workflowType', {}).get('name', None)
-        input = json.loads(description.get('input')) if description.get('input', None) else None
-        return AmazonSWFActivityTask(token, activity, input)
+    return ActivityTask(activity=activity, input=input, context={'token': token})

@@ -1,5 +1,5 @@
 from ..util import classproperty
-from .. import Defaults
+from ..defaults import Defaults
 
 class Activity(object):
     '''
@@ -28,13 +28,18 @@ class Activity(object):
     def __eq__(self, other):        
         return self.__dict__ == other.__dict__
 
-    def __init__(self, input=None, monitor=None):
+    def __init__(self, task, monitor=None):
+        self._task = task
         self._input = input
         self._monitor = monitor
 
     @property
     def input(self):
-        return self._input
+        return self._task.input
+
+    @property
+    def task(self):
+        return self._task
 
     @property
     def monitor(self):
@@ -45,7 +50,7 @@ class Activity(object):
         if self._monitor:
             self._monitor.heartbeat()
 
-    def execute(self, monitor=None):
+    def execute(self):
         raise NotImplementedError()
 
 class ActivityExecution(object):

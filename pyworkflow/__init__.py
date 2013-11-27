@@ -1,7 +1,4 @@
-class Defaults(object):
-    WORKFLOW_TIMEOUT = 31536000 # 365 days
-    DECISION_TIMEOUT = 60 # 1 minute
-    ACTIVITY_SCHEDULED_TIMEOUT = 60 # 1 minute
-    ACTIVITY_EXECUTION_TIMEOUT = 31536000 # 365 days
-    ACTIVITY_HEARTBEAT_TIMEOUT = 31536000 # 365 days
-    ACTIVITY_CATEGORY = 'default'
+from activity import *
+from decision import *
+from process import *
+from workflow import *

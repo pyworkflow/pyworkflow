@@ -95,6 +95,6 @@ class BlinkerBackend(Backend):
     def complete_activity_task(self, task, result=None):
         BlinkerBackend.on_complete_activity_task.send(self, task=task, result=result)
         
-        self.activity_result_signal(result).send(self, activity=task.activity, **result.__dict__)
+        self.activity_result_signal(result).send(self, activity=ActivityExecution(name=task.activity, id=task.id, input=task.input), **result.__dict__)
         
         return self.parent.complete_activity_task(task, result=result)
