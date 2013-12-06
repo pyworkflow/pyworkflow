@@ -1,6 +1,6 @@
 import traceback
 from uuid import uuid4
-from ..activity import ActivityCompleted, ActivityAborted, ActivityFailed, ActivityMonitor
+from ..activity import ActivityResult, ActivityCompleted, ActivityAborted, ActivityFailed, ActivityMonitor
 
 class ActivityWorker(object):
     """
@@ -56,6 +56,8 @@ class ActivityWorker(object):
         
             if result:
                 self.manager.complete_task(task, result)
+
+            return True
 
     def __repr__(self):
         return 'ActivityWorker(%s, %s)' % (self.manager, self.name)

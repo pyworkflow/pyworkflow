@@ -12,7 +12,7 @@ import unittest
 
 from boto import config
 
-from ... import Defaults
+from ...defaults import Defaults
 from ...test import WorkflowBackendTestCase
 from . import AmazonSWFBackend
 

@@ -16,7 +16,7 @@ class MemoryBackendTestCase(WorkflowBackendTestCase):
 
     def test_basic(self):
         self.subtest_basic()
-    
+        
     def test_managed(self):
         self.subtest_managed()
     

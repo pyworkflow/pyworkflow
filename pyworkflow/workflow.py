@@ -1,6 +1,6 @@
 import itertools
 from util import classproperty
-from . import Defaults
+from defaults import Defaults
 from event import ActivityEvent, DecisionEvent, SignalEvent
 from activity import ActivityCompleted
 

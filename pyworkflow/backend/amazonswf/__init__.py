@@ -2,12 +2,14 @@ import json
 import uuid
 import time
 import boto.swf
+
 from boto.exception import SWFResponseError
 from datetime import datetime, timedelta
+from itertools import imap
 
 from .. import Backend
 from ...exceptions import TimedOutException
-from ... import Defaults
+from ...defaults import Defaults
 from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, ActivityAborted
 from .task import decision_task_from_description, activity_task_from_description
 from .decision import AmazonSWFDecision
@@ -142,7 +144,7 @@ class AmazonSWFBackend(Backend):
             lambda token: self._swf.list_open_workflow_executions(self.domain, oldest_timestamp, workflow_name=workflow, tag=tag if input else None, next_page_token=token)
         )
 
-        return map(lambda d: mk_process(d), (d for response in response_iter for d in response['executionInfos']))
+        return imap(lambda d: mk_process(d), (d for response in response_iter for d in response['executionInfos']))
 
     def poll_activity_task(self, category="default", identity=None):
         description = self._swf.poll_for_activity_task(self.domain, category, identity=identity)

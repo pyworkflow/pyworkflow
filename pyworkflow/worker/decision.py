@@ -36,6 +36,7 @@ class DecisionWorker(object):
                 logger.info("Worker %s: Completed %s: %s" % (self.name, task, decisions))
 
             self.manager.complete_task(task, decisions)
+            return True
 
     def __repr__(self):
         return 'DecisionWorker(%s, %s)' % (self.manager, self.name)

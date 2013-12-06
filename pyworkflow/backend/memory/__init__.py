@@ -10,7 +10,7 @@ from ...event import *
 from ...decision import *
 from ...task import *
 from ...signal import *
-from ... import Defaults
+from ...defaults import Defaults
 
 class MemoryBackend(Backend):
     '''
@@ -165,7 +165,7 @@ class MemoryBackend(Backend):
         self._schedule_decision(managed_process)
 
     def processes(self, workflow=None, tag=None):
-        return filter(lambda p: (p.workflow == workflow or not workflow) and (tag in p.tags or not tag), self.running_processes)
+        return ifilter(lambda p: (p.workflow == workflow or not workflow) and (tag in p.tags or not tag), self.running_processes)
 
     def _time_out_activities(self):
         # activities that are past expired scheduling date. they're in scheduled_activities
@@ -203,7 +203,7 @@ class MemoryBackend(Backend):
         heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
         self.running_activities[run_id] = (activity_execution, process, expiration, heartbeat_expiration)
 
-        return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id})
+        return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id}, process_id=process.id)
 
     def poll_decision_task(self, identity=None):
         # time-out expired activities

@@ -248,6 +248,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         backend.start_process(Process(id='5678', workflow='test', input=3, tags=["process-5678"]))
 
         # Verify we can read the process back
+        assert hasattr(backend.processes(), '__iter__')
         processes = sorted(list(backend.processes()), key=lambda p: p.id)
 
         assert processes == [
@@ -284,6 +285,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
+        print processes
+        print processes[0].history
         assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled)
             ]))
@@ -380,6 +383,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify there are now no more processes
         processes = list(backend.processes())
+        print processes
         assert processes == []
 
     def subtest_managed(self):
@@ -525,11 +529,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         
         # Decide: -> complete
         task = manager.next_decision()
+        print task.process.history
         workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Verify completion
+        print decisions
         assert decisions == [CompleteProcess()]
         assert list(manager.processes()) == []
 
