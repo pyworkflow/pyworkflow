@@ -203,6 +203,8 @@ class MemoryBackend(Backend):
         heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
         self.running_activities[run_id] = (activity_execution, process, expiration, heartbeat_expiration)
 
+        process.history.append(ActivityStartedEvent(activity_execution))
+
         return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id}, process_id=process.id)
 
     def poll_decision_task(self, identity=None):

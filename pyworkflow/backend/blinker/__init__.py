@@ -78,7 +78,7 @@ class BlinkerBackend(Backend):
     def activity_result_signal(self, result):
         mapping = {
             ActivityCompleted: BlinkerBackend.on_activity_completed,
-            ActivityAborted: BlinkerBackend.on_activity_aborted,
+            ActivityCanceled: BlinkerBackend.on_activity_aborted,
             ActivityFailed: BlinkerBackend.on_activity_failed
         }
 

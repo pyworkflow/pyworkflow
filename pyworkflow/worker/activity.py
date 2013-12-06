@@ -1,6 +1,6 @@
 import traceback
 from uuid import uuid4
-from ..activity import ActivityResult, ActivityCompleted, ActivityAborted, ActivityFailed, ActivityMonitor
+from ..activity import ActivityResult, ActivityCompleted, ActivityCanceled, ActivityFailed, ActivityMonitor
 
 class ActivityWorker(object):
     """
@@ -24,7 +24,7 @@ class ActivityWorker(object):
             elif activity.auto_complete:
                 return ActivityCompleted(result)
 
-        except ActivityAborted, a:
+        except ActivityCanceled, a:
             return a
         except ActivityFailed, f:
             return f
@@ -34,7 +34,7 @@ class ActivityWorker(object):
     def log_result(self, task, result, logger):
         if isinstance(result, ActivityCompleted):
             logger.info("Worker %s: Completed %s: %s" % (self.name, task, result))
-        elif isinstance(result, ActivityAborted):
+        elif isinstance(result, ActivityCanceled):
             logger.info("Worker %s: Aborted %s: %s" % (self.name, task, result))
         elif isinstance(result, ActivityFailed):
             logger.warning("Worker %s: Failed %s: %s" % (self.name, task, result))

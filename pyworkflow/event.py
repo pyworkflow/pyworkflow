@@ -16,6 +16,14 @@ class DecisionEvent(Event):
     def __repr__(self):
         return 'DecisionEvent(%s)' % (repr(self.decision))
 
+class ActivityStartedEvent(Event):
+    def __init__(self, activity, **kwargs):
+        super(ActivityStartedEvent, self).__init__('activity_started', **kwargs)
+        self.activity = activity
+
+    def __repr__(self):
+        return 'ActivityStartedEvent(%s)' % (self.activity)
+
 class ActivityEvent(Event):
     def __init__(self, activity, result, **kwargs):
         super(ActivityEvent, self).__init__('activity', **kwargs)

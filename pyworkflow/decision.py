@@ -3,11 +3,16 @@ from .activity import Activity
 from copy import copy
 
 class Decision(object):
+    def __init__(self, decision_type):
+        self.type = decision_type
+
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
 
 class CompleteProcess(Decision):
     def __init__(self, result=None):
+        super(CompleteProcess, self).__init__('complete_process')
+
         self.result = result
 
     def __repr__(self):
@@ -15,6 +20,8 @@ class CompleteProcess(Decision):
 
 class CancelProcess(Decision):
     def __init__(self, details=None, reason=None):
+        super(CancelProcess, self).__init__('cancel_process')
+
         self.details = details
         self.reason = reason
 
@@ -23,6 +30,8 @@ class CancelProcess(Decision):
 
 class ScheduleActivity(Decision):
     def __init__(self, activity, id=None, category=None, input=None):
+        super(ScheduleActivity, self).__init__('schedule_activity')
+        
         try:
             self.activity = activity.name
         except:
@@ -37,7 +46,9 @@ class ScheduleActivity(Decision):
 
 class CancelActivity(Decision):
     def __init__(self, activity_or_id):
+        super(CancelActivity, self).__init__('cancel_activity')
+        
         self.id = activity_or_id.id if hasattr(activity_or_id, 'id') else activity_or_id
 
     def __repr__(self):
-        return 'CancelActivity(%)' % self.id
+        return 'CancelActivity(%s)' % self.id

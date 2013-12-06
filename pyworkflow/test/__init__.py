@@ -7,9 +7,9 @@ from datetime import datetime
 from ..exceptions import TimedOutException
 from ..workflow import Workflow, DefaultWorkflow
 from ..process import Process
-from ..activity import Activity, ActivityExecution, ActivityMonitor, ActivityCompleted, ActivityFailed, ActivityAborted
-from ..decision import ScheduleActivity, CompleteProcess, CancelProcess
-from ..event import DecisionEvent, ActivityEvent, SignalEvent
+from ..activity import Activity, ActivityExecution, ActivityMonitor, ActivityCompleted, ActivityFailed, ActivityCanceled
+from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity
+from ..event import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
 from ..signal import Signal
 from ..manager import Manager
 from ..worker import ActivityWorker, DecisionWorker, WorkerThread
@@ -63,7 +63,7 @@ class OrderWorkflow(DefaultWorkflow):
                 return []
 
             def is_interrupted_event(event):
-                return isinstance(event, ActivityEvent) and (isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityAborted))
+                return isinstance(event, ActivityEvent) and (isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityCanceled))
 
             if not filter(lambda ev: ev.activity.name == 'Shipment', filter(is_interrupted_event, process.unseen_events())):
                 return CompleteProcess()
@@ -173,6 +173,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
             elif isinstance(event1, ActivityEvent):
                 assert event1.activity == event2.activity
                 assert event1.result == event2.result
+            elif isinstance(event1, ActivityStartedEvent):
+                assert event1.activity == event2.activity
             elif isinstance(event1, SignalEvent):
                 assert event1.signal == event2.signal
             else:
@@ -285,8 +287,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        print processes
-        print processes[0].history
         assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled)
             ]))
@@ -317,6 +317,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed)
             ]))
 
@@ -327,7 +328,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Simulate activity task abortion
         task = backend.poll_activity_task()
-        backend.complete_activity_task(task, ActivityAborted(details='test'))
+        backend.complete_activity_task(task, ActivityCanceled(details='test'))
         date_aborted = datetime.now()
 
         # Verify we can read the process back
@@ -336,9 +337,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
-            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityAborted(details='test'), datetime=date_aborted)
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted)
             ]))
 
         # Re-schedule the task
@@ -357,10 +360,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert self.processes_approximately_equal(processes[0], Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
-            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityAborted(details='test'), datetime=date_aborted),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
             ]))
         
@@ -371,10 +377,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert self.processes_approximately_equal(task.process, Process(id='1234', workflow='test', input=2, tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
-            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityAborted(details='test'), datetime=date_aborted),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
             ]))
 
@@ -383,7 +392,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify there are now no more processes
         processes = list(backend.processes())
-        print processes
         assert processes == []
 
     def subtest_managed(self):
@@ -427,6 +435,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert task.process.workflow == 'Foo'
         assert self.processes_approximately_equal(task.process, Process(id=process.id, workflow='Foo', input=[2,3], tags=["process-1234", "foo"], history=[
             DecisionEvent(decision=ScheduleActivity('Multiplication', id=activity_id, input=[2,3]), datetime=date_scheduled),
+            ActivityStartedEvent(ActivityExecution('Multiplication', activity_id, [2,3])),
             ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed)
             ]))
 
@@ -461,7 +470,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Activity: abort
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
-        manager.complete_task(task, ActivityAborted())
+        manager.complete_task(task, ActivityCanceled())
         
         # Decide: -> terminate
         task = manager.next_decision()
@@ -482,6 +491,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Decide: -> payment processing
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
+        print task.process.history
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
@@ -493,7 +503,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Decide: -> shipment x2
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
+        print task.process.history
         decisions = workflow.decide(task.process)
+        print decisions
         manager.complete_task(task, decisions)
 
         # Activity: complete one
@@ -504,7 +516,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Decide: -> nothing
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
+        print task.process.history
         decisions = workflow.decide(task.process)
+        print decisions
         assert decisions == []
         manager.complete_task(task, decisions)
 
@@ -529,13 +543,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
         
         # Decide: -> complete
         task = manager.next_decision()
-        print task.process.history
         workflow = manager.workflow_for_task(task)
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
         # Verify completion
-        print decisions
         assert decisions == [CompleteProcess()]
         assert list(manager.processes()) == []
 

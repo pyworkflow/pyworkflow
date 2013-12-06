@@ -10,7 +10,7 @@ from itertools import imap
 from .. import Backend
 from ...exceptions import TimedOutException
 from ...defaults import Defaults
-from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, ActivityAborted
+from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, ActivityCanceled
 from .task import decision_task_from_description, activity_task_from_description
 from .decision import AmazonSWFDecision
 
@@ -103,12 +103,12 @@ class AmazonSWFBackend(Backend):
         try:
             if isinstance(result, ActivityCompleted):
                 self._swf.respond_activity_task_completed(task.context['token'], result=json.dumps(result.result))
-            elif isinstance(result, ActivityAborted):
+            elif isinstance(result, ActivityCanceled):
                 self._swf.respond_activity_task_canceled(task.context['token'], details=result.details)
             elif isinstance(result, ActivityFailed):
                 self._swf.respond_activity_task_failed(task.context['token'], details=result.details, reason=result.reason)
             else:
-                raise ValueError('Expected result of type in [ActivityCompleted, ActivityAborted, ActivityFailed]')
+                raise ValueError('Expected result of type in [ActivityCompleted, ActivityCanceled, ActivityFailed]')
         except SWFResponseError, e:
             if e.body.get('__type', None) == 'com.amazonaws.swf.base.model#UnknownResourceFault':
                 raise TimedOutException()

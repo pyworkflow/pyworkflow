@@ -18,7 +18,7 @@ activities. The first step is to implement activities by overriding the
 Activity, like so:
 
 ````
-from pyworkflow.activity import Activity, ActivityAborted
+from pyworkflow.activity import Activity, ActivityCanceled
 
 class MultiplicationActivity(Activity):
 
@@ -30,7 +30,7 @@ class MultiplicationActivity(Activity):
 			raise ValueError("invalid input")
 
 		if input[0] > 10:
-			return ActivityAborted("first operand must be <= 10")
+			return ActivityCanceled("first operand must be <= 10")
 
 		result = 0
 		for _ in range(0, input[0]):
