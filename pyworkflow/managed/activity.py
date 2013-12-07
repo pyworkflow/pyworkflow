@@ -53,17 +53,15 @@ class Activity(object):
     def execute(self):
         raise NotImplementedError()
 
-class ActivityExecution(object):
-    def __init__(self, activity, id, input=None):
-        self.activity = activity
-        self.id = id
-        self.input = input
 
-    def __eq__(self, other):
-        return self.__dict__ == other.__dict__
+class ActivityMonitor(object):
+    ''' 
+    Responds to events from activity
+    Allows some controlled communication between Activity and its invoker.
+    '''
 
-    def __ne__(self, other):
-        return not self.__eq__(other)
+    def __init__(self, heartbeat_fn=None):
+        def noop():
+            pass
 
-    def __repr__(self):
-        return 'ActivityExecution(%s, %s, %s)' % (self.activity, self.id, self.input)
+        self.heartbeat = heartbeat_fn or noop

@@ -11,7 +11,7 @@ from datastore.core import Key, Query
 from .. import Backend
 from ...activity import *
 from ...exceptions import TimedOutException, UnknownProcessException
-from ...event import *
+from ...events import *
 from ...decision import *
 from ...task import *
 from ...signal import *

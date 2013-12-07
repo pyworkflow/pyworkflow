@@ -1,8 +1,8 @@
 import itertools
-from util import classproperty
-from defaults import Defaults
-from event import ActivityEvent, DecisionEvent, SignalEvent
-from activity import ActivityCompleted
+from ..util import classproperty
+from ..defaults import Defaults
+from ..events import ActivityEvent, DecisionEvent, SignalEvent
+from ..activity import ActivityCompleted
 
 class Workflow(object):
     """ 

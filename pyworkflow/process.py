@@ -1,6 +1,5 @@
 from uuid import uuid4
-from workflow import Workflow
-from event import DecisionEvent, ActivityEvent
+from events import DecisionEvent, ActivityEvent
 from activity import ActivityExecution
 from decision import ScheduleActivity
 

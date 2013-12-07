@@ -1,3 +1,18 @@
+class ActivityExecution(object):
+    def __init__(self, activity, id, input=None):
+        self.activity = activity
+        self.id = id
+        self.input = input
+
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+    def __ne__(self, other):
+        return not self.__eq__(other)
+
+    def __repr__(self):
+        return 'ActivityExecution(%s, %s, %s)' % (self.activity, self.id, self.input)
+
 class ActivityResult(object):
     def __init__(self, result_type):
         self.type = result_type

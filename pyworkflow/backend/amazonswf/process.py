@@ -2,7 +2,7 @@ import json
 from datetime import datetime
 
 from ...process import Process
-from ...event import Event, DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
+from ...events import Event, DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
 from ...signal import Signal
 from ...activity import ActivityCompleted, ActivityCanceled, ActivityFailed, ActivityTimedOut, ActivityExecution
 from ...decision import ScheduleActivity

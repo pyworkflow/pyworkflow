@@ -6,7 +6,7 @@ from uuid import uuid4
 from .. import Backend
 from ...activity import *
 from ...exceptions import TimedOutException
-from ...event import *
+from ...events import *
 from ...decision import *
 from ...task import *
 from ...signal import *

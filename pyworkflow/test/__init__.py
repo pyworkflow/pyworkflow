@@ -5,14 +5,15 @@ from time import sleep
 
 from datetime import datetime
 from ..exceptions import TimedOutException
-from ..workflow import Workflow, DefaultWorkflow
 from ..process import Process
-from ..activity import Activity, ActivityExecution, ActivityMonitor, ActivityCompleted, ActivityFailed, ActivityCanceled
+from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
 from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity
-from ..event import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
+from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
 from ..signal import Signal
-from ..manager import Manager
-from ..worker import ActivityWorker, DecisionWorker, WorkerThread
+from ..task import ActivityTask
+
+from ..managed import Activity, ActivityMonitor, Workflow, DefaultWorkflow, Manager
+from ..managed.worker import ActivityWorker, DecisionWorker, WorkerThread
 
 logging.getLogger('workflow').setLevel('DEBUG')
 
@@ -138,10 +139,11 @@ class WorkflowBasicTestCase(unittest.TestCase):
         # execute the activity
         heartbeat = mock.Mock()
         monitor = ActivityMonitor(heartbeat_fn=heartbeat)
-        result = MultiplicationActivity(decision.input, monitor).execute()
+        activity_execution = ActivityTask(ActivityExecution('Multiplication',123,input=decision.input))
+        result = MultiplicationActivity(activity_execution, monitor).execute()
         assert heartbeat.call_count == 1
         assert result == 6
-        process.history.append(ActivityEvent(ActivityExecution('Multiplication', 123, [2,3]), ActivityCompleted(result)))
+        process.history.append(ActivityEvent(activity_execution, ActivityCompleted(result)))
         assert (datetime.now() - process.history[1].datetime).seconds == 0
 
         # take a decision

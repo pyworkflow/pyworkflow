@@ -1,6 +1,7 @@
 import traceback
 from uuid import uuid4
-from ..activity import ActivityResult, ActivityCompleted, ActivityCanceled, ActivityFailed, ActivityMonitor
+from ...activity import ActivityResult, ActivityCompleted, ActivityCanceled, ActivityFailed
+from ..activity import ActivityMonitor
 
 class ActivityWorker(object):
     """

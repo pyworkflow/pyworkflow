@@ -1,6 +1,5 @@
 import itertools
-from backend import Backend
-from task import DecisionTask, ActivityTask
+from ..task import DecisionTask, ActivityTask
 
 class Manager(object):
     """

@@ -1,6 +1,4 @@
 from uuid import uuid4
-from .activity import Activity
-from copy import copy
 
 class Decision(object):
     def __init__(self, decision_type):
