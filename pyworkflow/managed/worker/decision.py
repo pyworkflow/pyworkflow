@@ -16,7 +16,7 @@ class DecisionWorker(object):
 
         # Convert Activity results to ScheduleActivity decisions
         def convert(decision):
-            if issubclass(decision, Activity):
+            if type(decision) is type and issubclass(decision, Activity):
                 return ScheduleActivity(activity=decision, input=task.process.input)
             elif isinstance(decision, Decision):
                 return decision

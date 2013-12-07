@@ -35,7 +35,7 @@ class DefaultWorkflow(Workflow):
     def respond_to_completed_activity(self, process, activity_execution, result):
         raise NotImplementedError()
 
-    def respond_to_interrupted_activity(self, process, activity_execution, result):
+    def respond_to_interrupted_activity(self, process, activity_execution, details):
         raise NotImplementedError()
 
     def respond_to_signal(self, process, signal):
@@ -44,9 +44,9 @@ class DefaultWorkflow(Workflow):
     def handle_event(self, event, process):
         if isinstance(event, ActivityEvent):
             if isinstance(event.result, ActivityCompleted):
-                return self.respond_to_completed_activity(process, event.activity_execution, event.result)
+                return self.respond_to_completed_activity(process, event.activity_execution, event.result.result)
             else:
-                return self.respond_to_interrupted_activity(process, event.activity_execution, event.result)
+                return self.respond_to_interrupted_activity(process, event.activity_execution, event.result.details)
         elif isinstance(event, SignalEvent):
             return self.respond_to_signal(process, event.signal)
 

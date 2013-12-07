@@ -1,6 +1,7 @@
 import threading
 import logging
 import traceback
+from time import sleep
 
 class WorkerThread(threading.Thread):
     '''
@@ -8,8 +9,10 @@ class WorkerThread(threading.Thread):
     Inherent isolated state contained in this class.
     '''
 
-    def __init__(self, worker, logger=None):
+    def __init__(self, worker, logger=None, delay_on_idle=1):
         super(WorkerThread, self).__init__()
+
+        self.delay_on_idle = delay_on_idle
 
         # Internal events
         self.stop = threading.Event()
@@ -23,7 +26,8 @@ class WorkerThread(threading.Thread):
 
         while not self.stop.isSet():
             try:
-                self.worker.step(logger=self.logger)
+                if not self.worker.step(logger=self.logger):
+                    sleep(self.delay_on_idle)
             except Exception, e:
                 self.logger.error("Worker %s encountered error while getting activity: %s" % (self.worker, traceback.format_exc()))
 

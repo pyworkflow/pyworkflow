@@ -72,7 +72,7 @@ class OrderWorkflow(DefaultWorkflow):
         if activity_execution.activity == 'CancelOrder':
             return CancelProcess()
 
-    def respond_to_interrupted_activity(self, process, activity_execution, result):
+    def respond_to_interrupted_activity(self, process, activity_execution, details):
         if activity_execution.activity == 'PaymentProcessing':
             return CancelProcess('payment_aborted')
 
