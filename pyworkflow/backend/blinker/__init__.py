@@ -53,16 +53,22 @@ class BlinkerBackend(Backend):
     # For the events we're interested in, emit signals
 
     def start_process(self, process):
+        ret = self.parent.start_process(process)
+
         BlinkerBackend.on_process_started.send(self, process=process)
-        return self.parent.start_process(process)
+        return ret        
     
     def signal_process(self, process, signal, data=None):
+        ret = self.parent.signal_process(process, signal, data=data)
+        
         BlinkerBackend.on_process_signaled.send(self, process=process, signal=signal, data=data)
-        return self.parent.signal_process(process, signal, data=data)
+        return ret        
 
     def cancel_process(self, process, details=None, reason=None):
+        ret = self.parent.cancel_process(process, details=details, reason=reason)
+        
         BlinkerBackend.on_process_canceled.send(self, process=process, details=details, reason=reason)
-        return self.parent.cancel_process(process, details=details, reason=reason)
+        return ret
 
     def decision_signal(self, decision):
         mapping = {
@@ -84,6 +90,8 @@ class BlinkerBackend(Backend):
         return mapping[result.__class__]
 
     def complete_decision_task(self, task, decisions):
+        ret = self.parent.complete_decision_task(task, decisions)
+
         BlinkerBackend.on_complete_decision_task.send(self, task=task, decisions=decisions)
         
         for decision in decisions if type(decisions) == list else [decisions]:
@@ -98,9 +106,11 @@ class BlinkerBackend(Backend):
 
             signal.send(self, process=task.process, **args[decision.type]())
 
-        return self.parent.complete_decision_task(task, decisions)
+        return ret        
 
     def complete_activity_task(self, task, result=None):
+        ret = self.parent.complete_activity_task(task, result=result)
+
         BlinkerBackend.on_complete_activity_task.send(self, task=task, result=result)
 
         args = {
@@ -112,4 +122,4 @@ class BlinkerBackend(Backend):
         signal = self.activity_result_signal(result)
         signal.send(self, activity_execution=task.activity_execution, process_id=task.process_id, **args[result.type]())
         
-        return self.parent.complete_activity_task(task, result=result)
+        return ret

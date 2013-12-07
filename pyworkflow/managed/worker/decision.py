@@ -1,5 +1,6 @@
 from uuid import uuid4
 from ..activity import Activity
+from ...decision import Decision, ScheduleActivity
 
 class DecisionWorker(object):
     """
@@ -15,10 +16,12 @@ class DecisionWorker(object):
 
         # Convert Activity results to ScheduleActivity decisions
         def convert(decision):
-            if isinstance(decision, Activity):
+            if issubclass(decision, Activity):
                 return ScheduleActivity(activity=decision, input=task.process.input)
-            else:
+            elif isinstance(decision, Decision):
                 return decision
+            else:
+                raise ValueError('Invalid decision type: %s', type(decision))
 
         # Make sure we return a list
         return map(convert, decisions if hasattr(decisions, '__iter__') else [decisions])
