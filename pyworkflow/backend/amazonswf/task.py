@@ -20,6 +20,8 @@ def activity_task_from_description(description):
     activity_id = description['activityId']
     activity = description['activityType']['name']
     input = json.loads(description.get('input')) if description.get('input', None) else None
+    activity_execution = ActivityExecution(activity=activity, id=activity_id, input=input)
+
     pid = description['workflowExecution']['workflowId']
 
-    return ActivityTask(activity=activity, input=input, context={'token': token}, process_id=pid)
+    return ActivityTask(activity_execution=activity_execution, process_id=pid, context={'token': token})

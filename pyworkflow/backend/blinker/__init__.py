@@ -12,7 +12,6 @@ class BlinkerBackend(Backend):
     on_activity_started = Signal()
     on_activity_completed = Signal()
     on_activity_canceled = Signal()
-    on_activity_aborted = Signal()
     on_activity_failed = Signal()
     on_activity_timedout = Signal()
 
@@ -78,7 +77,7 @@ class BlinkerBackend(Backend):
     def activity_result_signal(self, result):
         mapping = {
             ActivityCompleted: BlinkerBackend.on_activity_completed,
-            ActivityCanceled: BlinkerBackend.on_activity_aborted,
+            ActivityCanceled: BlinkerBackend.on_activity_canceled,
             ActivityFailed: BlinkerBackend.on_activity_failed
         }
 
@@ -88,13 +87,29 @@ class BlinkerBackend(Backend):
         BlinkerBackend.on_complete_decision_task.send(self, task=task, decisions=decisions)
         
         for decision in decisions if type(decisions) == list else [decisions]:
-            self.decision_signal(decision).send(self, process=task.process, **decision.__dict__)
+            signal = self.decision_signal(decision)
+
+            args = {
+                'schedule_activity': lambda: {'activity_execution': ActivityExecution(decision.activity, decision.id, decision.input)},
+                'complete_process': lambda: {'result': decision.result},
+                'cancel_process': lambda: {'details': decision.details, 'reason': decision.reason},
+                'cancel_activity': lambda: {'activity_id': decision.id}
+            }
+
+            signal.send(self, process=task.process, **args[decision.type]())
 
         return self.parent.complete_decision_task(task, decisions)
 
     def complete_activity_task(self, task, result=None):
         BlinkerBackend.on_complete_activity_task.send(self, task=task, result=result)
-        
-        self.activity_result_signal(result).send(self, activity=task.activity, process_id=task.process_id, input=task.input, **result.__dict__)
+
+        args = {
+            'completed': lambda: {'result': result.result},
+            'canceled': lambda: {'details': result.details},
+            'failed': lambda: {'reason': result.reason, 'details': result.details}
+        }
+
+        signal = self.activity_result_signal(result)
+        signal.send(self, activity_execution=task.activity_execution, process_id=task.process_id, **args[result.type]())
         
         return self.parent.complete_activity_task(task, result=result)

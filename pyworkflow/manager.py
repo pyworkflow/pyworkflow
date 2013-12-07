@@ -78,7 +78,7 @@ class Manager(object):
         return workflow_cls()
 
     def activity_for_task(self, task, monitor=None):
-        activity_cls = self._activities[task.activity]
+        activity_cls = self._activities[task.activity_execution.activity]
         return activity_cls(task=task, monitor=monitor)
 
     def complete_task(self, task, result):

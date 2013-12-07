@@ -35,7 +35,7 @@ class Activity(object):
 
     @property
     def input(self):
-        return self._task.input
+        return self._task.activity_execution.input
 
     @property
     def task(self):
@@ -54,8 +54,8 @@ class Activity(object):
         raise NotImplementedError()
 
 class ActivityExecution(object):
-    def __init__(self, name, id, input=None):
-        self.name = name
+    def __init__(self, activity, id, input=None):
+        self.activity = activity
         self.id = id
         self.input = input
 
@@ -66,4 +66,4 @@ class ActivityExecution(object):
         return not self.__eq__(other)
 
     def __repr__(self):
-        return 'ActivityExecution(%s, %s, %s)' % (self.name, self.id, self.input)
+        return 'ActivityExecution(%s, %s, %s)' % (self.activity, self.id, self.input)

@@ -54,31 +54,31 @@ class OrderWorkflow(DefaultWorkflow):
     def initiate(self, process):
         return ScheduleActivity(PaymentProcessingActivity)
 
-    def respond_to_completed_activity(self, process, activity, result):
-        if activity.name == 'PaymentProcessing':
+    def respond_to_completed_activity(self, process, activity_execution, result):
+        if activity_execution.activity == 'PaymentProcessing':
             return [ScheduleActivity(ShipmentActivity, input=item) for item in process.input['items']]
 
-        if activity.name == 'Shipment':
+        if activity_execution.activity == 'Shipment':
             if process.unfinished_activities():
                 return []
 
             def is_interrupted_event(event):
                 return isinstance(event, ActivityEvent) and (isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityCanceled))
 
-            if not filter(lambda ev: ev.activity.name == 'Shipment', filter(is_interrupted_event, process.unseen_events())):
+            if not filter(lambda ev: ev.activity_execution.activity == 'Shipment', filter(is_interrupted_event, process.unseen_events())):
                 return CompleteProcess()
 
-        if activity.name == 'CancelOrder':
+        if activity_execution.activity == 'CancelOrder':
             return CancelProcess()
 
-    def respond_to_interrupted_activity(self, process, activity, result):
-        if activity.name == 'PaymentProcessing':
+    def respond_to_interrupted_activity(self, process, activity_execution, result):
+        if activity_execution.activity == 'PaymentProcessing':
             return CancelProcess('payment_aborted')
 
-        if activity.name == 'Shipment':
+        if activity_execution.activity == 'Shipment':
             decisions = []
-            for activity in process.unfinished_activities():
-                decisions.append(CancelActivity(activity.id))
+            for activity_execution in process.unfinished_activities():
+                decisions.append(CancelActivity(activity_execution.id))
             decisions.append(ScheduleActivity(CancelOrderActivity, input=process.input))
             return decisions
 
@@ -171,10 +171,10 @@ class WorkflowBackendTestCase(unittest.TestCase):
             if isinstance(event1, DecisionEvent):
                 assert event1.decision == event2.decision
             elif isinstance(event1, ActivityEvent):
-                assert event1.activity == event2.activity
+                assert event1.activity_execution == event2.activity_execution
                 assert event1.result == event2.result
             elif isinstance(event1, ActivityStartedEvent):
-                assert event1.activity == event2.activity
+                assert event1.activity_execution == event2.activity_execution
             elif isinstance(event1, SignalEvent):
                 assert event1.signal == event2.signal
             else:
@@ -304,8 +304,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify we get the activity task back now
         task = backend.poll_activity_task()
-        assert task.activity == 'double'
-        assert task.input == 2
+        assert task.activity_execution.activity == 'double'
+        assert task.activity_execution.input == 2
 
         # Simulate activity task failure
         backend.complete_activity_task(task, ActivityFailed(reason='simulated error', details='unknown'))
@@ -351,7 +351,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         
         # Simulate activity task completion (perform input*2)
         task = backend.poll_activity_task()
-        backend.complete_activity_task(task, ActivityCompleted(result=task.input * 2))
+        backend.complete_activity_task(task, ActivityCompleted(result=task.activity_execution.input * 2))
         date_completed = datetime.now()
         
         # Verify we can read the process back
@@ -422,8 +422,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
         assert activity == MultiplicationActivity(task)
-        assert task.activity == 'Multiplication'
-        assert task.input == [2,3]
+        assert task.activity_execution.activity == 'Multiplication'
+        assert task.activity_execution.input == [2,3]
         result = activity.execute()
         assert result == 6
         manager.complete_task(task, ActivityCompleted(result=result))

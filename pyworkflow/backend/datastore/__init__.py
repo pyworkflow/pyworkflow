@@ -143,7 +143,7 @@ class DatastoreBackend(Backend):
 
         # replace with new heartbeat timeout
         self.datastore.delete(self.KEY_RUNNING_ACTIVITIES.child(task.context['run_id']))
-        expiration = datetime.now() + timedelta(seconds=self.activities[execution.name]['heartbeat_timeout'])
+        expiration = datetime.now() + timedelta(seconds=self.activities[execution.activity]['heartbeat_timeout'])
         self.datastore.put(self.KEY_RUNNING_ACTIVITIES.child(task.context['run_id']), {'run_id': task.context['run_id'], 'exec': pickle.dumps(execution), 'pid': pid, 'exp': expiration, 'hb_exp': hb_expiration})
 
     def complete_decision_task(self, task, decisions):
@@ -250,14 +250,14 @@ class DatastoreBackend(Backend):
         
         run_id = str(uuid4())
         managed_process = self._managed_process(pid)
-        expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['execution_timeout'])
-        heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
+        expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['execution_timeout'])
+        heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['heartbeat_timeout'])
 
         managed_process['proc'].history.append(ActivityStartedEvent(activity_execution))
         self._save_managed_process(managed_process)
 
         self.datastore.put(self.KEY_RUNNING_ACTIVITIES.child(run_id), {'run_id': run_id, 'exec': pickle.dumps(activity_execution), 'pid': pid, 'exp': expiration, 'hb_exp': heartbeat_expiration})
-        return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id}, process_id=pid)
+        return ActivityTask(activity_execution, process_id=pid, context={'run_id': run_id})
 
     def poll_decision_task(self, identity=None):
         # time-out expired activities

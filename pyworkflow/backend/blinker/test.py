@@ -34,27 +34,29 @@ class BlinkerBackendTestCase(WorkflowBackendTestCase):
             signal.connect(loggers[name])
 
         self.subtest_basic()
-        
-        # signal name, kwargs keys
-        assert received == [
+
+        expected = [
             ('on_process_started', ['process']), 
             ('on_process_started', ['process']), 
             ('on_process_canceled', ['process', 'reason', 'details']), 
             ('on_complete_decision_task', ['task', 'decisions']), 
-            ('on_activity_scheduled', ['category', 'input', 'process', 'id', 'activity']),
+            ('on_activity_scheduled', ['process', 'activity_execution']),
             ('on_process_signaled', ['process', 'signal', 'data']), 
             ('on_complete_activity_task', ['task', 'result']), 
-            ('on_activity_failed', ['input', 'reason', 'process_id', 'details', 'activity']), 
+            ('on_activity_failed', ['reason', 'process_id', 'details', 'activity_execution']), 
             ('on_complete_decision_task', ['task', 'decisions']), 
-            ('on_activity_scheduled', ['category', 'input', 'process', 'id', 'activity']), 
+            ('on_activity_scheduled', ['process', 'activity_execution']),
             ('on_complete_activity_task', ['task', 'result']), 
-            ('on_activity_aborted', ['input', 'process_id', 'details', 'activity']), 
+            ('on_activity_canceled', ['process_id', 'details', 'activity_execution']), 
             ('on_complete_decision_task', ['task', 'decisions']), 
-            ('on_activity_scheduled', ['category', 'input', 'process', 'id', 'activity']), 
+            ('on_activity_scheduled', ['process', 'activity_execution']),
             ('on_complete_activity_task', ['task', 'result']), 
-            ('on_activity_completed', ['input', 'process_id', 'result','activity']), 
+            ('on_activity_completed', ['process_id', 'result', 'activity_execution']), 
             ('on_complete_decision_task', ['task', 'decisions']),
-            ('on_process_completed', ['process', 'result']), 
+            ('on_process_completed', ['process', 'result'])
         ]
 
-        
+        for (i,ev) in enumerate(received):
+            print ev
+            assert ev == expected[i]
+

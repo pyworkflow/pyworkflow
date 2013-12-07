@@ -53,10 +53,10 @@ class Process(object):
             event = next(iterable, None)
             if event is None:
                 return []
-            elif hasattr(event, 'decision') and hasattr(event.decision, 'activity'):
+            elif event.type == 'decision' and hasattr(event.decision, 'activity'):
                 return unfinished(iterable) + [ActivityExecution(event.decision.activity, event.decision.id, event.decision.input)]
-            elif hasattr(event, 'activity') and hasattr(event, 'result'):
-                return filter(lambda x: x != event.activity, unfinished(iterable))
+            elif event.type == 'activity' and hasattr(event, 'result'):
+                return filter(lambda x: x != event.activity_execution, unfinished(iterable))
             else:
                 return unfinished(iterable)
 

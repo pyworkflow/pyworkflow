@@ -18,17 +18,17 @@ class AmazonSWFProcess(Process):
             scheduled_by = filter(lambda x: x['eventId'] == attributes['scheduledEventId'], related)[0]
             attrs = scheduled_by.get('activityTaskScheduledEventAttributes', None)
             input = json.loads(attrs['input']) if attrs.get('input', None) else None
-            activity = ActivityExecution(attrs['activityType']['name'], attrs['activityId'], input)
+            activity_execution = ActivityExecution(attrs['activityType']['name'], attrs['activityId'], input)
             if result:
-                return ActivityEvent(datetime=event_dt, activity=activity, result=result)
+                return ActivityEvent(datetime=event_dt, activity_execution=activity_execution, result=result)
             else:
-                return ActivityStartedEvent(datetime=event_dt, activity=activity)
+                return ActivityStartedEvent(datetime=event_dt, activity_execution=activity_execution)
 
         if event_type == 'ActivityTaskScheduled':
             id = attributes['activityId']
             activity = attributes['activityType']['name']
             input = json.loads(attributes['input']) if attributes.get('input', None) else None
-            return DecisionEvent(datetime=event_dt, decision=ScheduleActivity(id=id, activity=activity, input=input))
+            return DecisionEvent(datetime=event_dt, decision=ScheduleActivity(activity=activity, id=id, input=input))
         elif event_type == 'ActivityTaskStarted':
             return activity_event_with_result(None)
         elif event_type == 'ActivityTaskCompleted':

@@ -115,7 +115,7 @@ class MemoryBackend(Backend):
         activity_execution = self.running_activities.get(task.context['run_id'])
         # replace with new heartbeat timeout
         self.running_activities.remove(activity)        
-        activity[3] = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
+        activity[3] = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['heartbeat_timeout'])
         self.running_activities.append(activity)
 
     def complete_decision_task(self, task, decisions):
@@ -199,13 +199,13 @@ class MemoryBackend(Backend):
             return None
         
         run_id = str(uuid4())
-        expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['execution_timeout'])
-        heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.name]['heartbeat_timeout'])
+        expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['execution_timeout'])
+        heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['heartbeat_timeout'])
         self.running_activities[run_id] = (activity_execution, process, expiration, heartbeat_expiration)
 
         process.history.append(ActivityStartedEvent(activity_execution))
 
-        return ActivityTask(activity_execution.name, input=activity_execution.input, context={'run_id': run_id}, process_id=process.id)
+        return ActivityTask(activity_execution, process_id=process.id, context={'run_id': run_id})
 
     def poll_decision_task(self, identity=None):
         # time-out expired activities

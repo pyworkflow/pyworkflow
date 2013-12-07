@@ -17,21 +17,21 @@ class DecisionEvent(Event):
         return 'DecisionEvent(%s)' % (repr(self.decision))
 
 class ActivityStartedEvent(Event):
-    def __init__(self, activity, **kwargs):
+    def __init__(self, activity_execution, **kwargs):
         super(ActivityStartedEvent, self).__init__('activity_started', **kwargs)
-        self.activity = activity
+        self.activity_execution = activity_execution
 
     def __repr__(self):
-        return 'ActivityStartedEvent(%s)' % (self.activity)
+        return 'ActivityStartedEvent(%s)' % (self.activity_execution)
 
 class ActivityEvent(Event):
-    def __init__(self, activity, result, **kwargs):
+    def __init__(self, activity_execution, result, **kwargs):
         super(ActivityEvent, self).__init__('activity', **kwargs)
-        self.activity = activity
+        self.activity_execution = activity_execution
         self.result = result
 
     def __repr__(self):
-        return 'ActivityEvent(%s, %s)' % (self.activity, repr(self.result))
+        return 'ActivityEvent(%s, %s)' % (self.activity_execution, repr(self.result))
 
 class SignalEvent(Event):
     def __init__(self, signal, **kwargs):
