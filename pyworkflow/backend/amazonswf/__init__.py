@@ -8,7 +8,7 @@ from datetime import datetime, timedelta
 from itertools import imap
 
 from .. import Backend
-from ...exceptions import TimedOutException
+from ...exceptions import UnknownDecisionException, UnknownActivityException
 from ...defaults import Defaults
 from .process import AmazonSWFProcess, ActivityCompleted, ActivityFailed, ActivityCanceled
 from .task import decision_task_from_description, activity_task_from_description
@@ -65,6 +65,9 @@ class AmazonSWFBackend(Backend):
         if process.tags and len(process.tags) > 5:
             raise ValueError('AmazonSWF supports a maximum of 5 tags per process')
 
+        if process.parent:
+            raise ValueError('AmazonSWF does not support starting child tasks directly. Use StartChildProcess decision instead.')
+
         self._swf.start_workflow_execution(
             self.domain, process.id, process.workflow, "1.0",
             input=json.dumps(process.input),
@@ -95,7 +98,7 @@ class AmazonSWFBackend(Backend):
                 execution_context=None)
         except SWFResponseError, e:
             if e.body.get('__type', None) == 'com.amazonaws.swf.base.model#UnknownResourceFault':
-                raise TimedOutException()
+                raise UnknownDecisionException()
             else:
                 raise e
 
@@ -111,7 +114,7 @@ class AmazonSWFBackend(Backend):
                 raise ValueError('Expected result of type in [ActivityCompleted, ActivityCanceled, ActivityFailed]')
         except SWFResponseError, e:
             if e.body.get('__type', None) == 'com.amazonaws.swf.base.model#UnknownResourceFault':
-                raise TimedOutException()
+                raise UnknownActivityException()
             else:
                 raise e
     

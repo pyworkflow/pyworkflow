@@ -1,5 +1,14 @@
-class TimedOutException(Exception):
+class UnknownResourceException(Exception):
 	pass
 
-class UnknownProcessException(Exception):
+class UnknownProcessException(UnknownResourceException):
+	pass
+
+class UnknownActivityException(UnknownResourceException):
+	pass
+
+class UnknownDecisionException(UnknownResourceException):
+	pass
+
+class TimedOutException(Exception):
 	pass

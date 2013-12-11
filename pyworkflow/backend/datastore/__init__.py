@@ -10,9 +10,10 @@ from datastore.core import Key, Query
 
 from .. import Backend
 from ...activity import *
-from ...exceptions import TimedOutException, UnknownProcessException
+from ...exceptions import UnknownActivityException, UnknownDecisionException, UnknownProcessException
 from ...events import *
 from ...decision import *
+from ...process import Process
 from ...task import *
 from ...signal import *
 from ...defaults import Defaults
@@ -64,12 +65,18 @@ class DatastoreBackend(Backend):
         aid = str(uuid4())
         self.datastore.put(self.KEY_SCHEDULED_ACTIVITIES.child(aid), {'dt': time.time(), 'aid': aid, 'exec': pickle.dumps(execution), 'pid': process['pid'], 'exp': expiration})
 
+    def _activity_by_id(self, id):
+        activity = filter(lambda a: pickle.loads(a['exec']).id == id, self.datastore.query(Query(self.KEY_RUNNING_ACTIVITIES)))
+        if not activity:
+            activity = filter(lambda a: pickle.loads(a['exec']).id == id, self.datastore.query(Query(self.KEY_SCHEDULED_ACTIVITIES)))
+        return (activity or [None])[0]        
+
     def _cancel_activity(self, id):
-        to_cancel = filter(lambda a: pickle.loads(a['exec']).id == decision.id, self.datastore.query(Query(self.KEY_SCHEDULED_ACTIVITIES)))
+        to_cancel = filter(lambda a: pickle.loads(a['exec']).id == id, self.datastore.query(Query(self.KEY_SCHEDULED_ACTIVITIES)))
         for a in to_cancel:
             self.datastore.delete(self.KEY_SCHEDULED_ACTIVITIES.child(a['aid']))
 
-        to_cancel = filter(lambda a: pickle.loads(a['exec']).id == decision.id, self.datastore.query(Query(self.KEY_RUNNING_ACTIVITIES)))
+        to_cancel = filter(lambda a: pickle.loads(a['exec']).id == id, self.datastore.query(Query(self.KEY_RUNNING_ACTIVITIES)))
         for a in to_cancel:
             self.datastore.delete(self.KEY_RUNNING_ACTIVITIES.child(a['run_id']))
 
@@ -155,8 +162,9 @@ class DatastoreBackend(Backend):
         # find the process as we know it
         decision = self.datastore.get(self.KEY_RUNNING_DECISIONS.child(task.context['run_id']))
         if not decision:
-            raise TimedOutException()
+            raise UnknownDecisionException()
 
+        self.datastore.delete(self.KEY_RUNNING_DECISIONS.child(task.context['run_id']))
         (pid, expiration) = (decision['pid'], decision['exp'])
         managed_process = self._managed_process(pid)
 
@@ -171,13 +179,27 @@ class DatastoreBackend(Backend):
 
             # cancel activity
             if isinstance(decision, CancelActivity):
+                activity = self._activity_by_id(decision.id)
                 self._cancel_activity(decision.id)
+                managed_process['proc'].history.append(ActivityEvent(pickle.loads(activity['exec']), ActivityCanceled()))
+                self._save_managed_process(managed_process)
 
             # complete process
             if isinstance(decision, CompleteProcess) or isinstance(decision, CancelProcess):
                 for mp in filter(lambda mp: mp['pid'] == pid, self.datastore.query(Query(self.KEY_RUNNING_PROCESSES))):
                     self.datastore.delete(self.KEY_RUNNING_PROCESSES.child(mp['pid']))
                 self._cancel_decision(managed_process)
+                if managed_process['proc'].parent:
+                    self._schedule_decision(self._managed_process(managed_process['proc'].parent))
+
+            # start child process
+            if isinstance(decision, StartChildProcess):
+                process = Process(workflow=decision.process.workflow, id=decision.process.id, input=decision.process.input, tags=decision.process.tags, parent=task.process.id)
+                managed_process = {'pid': process.id, 'proc': process}
+                self._save_managed_process(managed_process)
+                # schedule a decision
+                self._schedule_decision(managed_process)
+        
 
         # decision finished
         self.datastore.delete(self.KEY_RUNNING_DECISIONS.child(task.context['run_id']))
@@ -188,8 +210,9 @@ class DatastoreBackend(Backend):
         # find the process as we know it
         activity = self.datastore.get(self.KEY_RUNNING_ACTIVITIES.child(task.context['run_id']))
         if not activity:
-            raise TimedOutException()
+            raise UnknownActivityException()
 
+        self.datastore.delete(self.KEY_RUNNING_ACTIVITIES.child(task.context['run_id']))
         (execution, pid, expiration, heartbeat_expiration) = (pickle.loads(activity['exec']), activity['pid'], activity['exp'], activity['hb_exp'])
         managed_process = self._managed_process(pid)
 

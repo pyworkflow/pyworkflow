@@ -48,7 +48,7 @@ class ActivityFailed(InterruptedActivityResult):
         self.reason = reason
         self.details = details
 
-    def __str__(self):
+    def __repr__(self):
         return 'ActivityFailed(%s,%s)' % (self.reason, self.details)
 
 class ActivityTimedOut(InterruptedActivityResult):

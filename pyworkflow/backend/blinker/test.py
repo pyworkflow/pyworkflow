@@ -53,10 +53,13 @@ class BlinkerBackendTestCase(WorkflowBackendTestCase):
             ('on_complete_activity_task', ['task', 'result']), 
             ('on_activity_completed', ['process_id', 'result', 'activity_execution']), 
             ('on_complete_decision_task', ['task', 'decisions']),
+            ('on_process_started', ['process']),
+            ('on_complete_decision_task', ['task', 'decisions']),
+            ('on_process_completed', ['process', 'result']),
+            ('on_complete_decision_task', ['task', 'decisions']),
             ('on_process_completed', ['process', 'result'])
         ]
 
         for (i,ev) in enumerate(received):
-            print ev
-            assert ev == expected[i]
+            assert ev == expected[i], 'Expected %s instead of %s' % (expected[i], ev)
 

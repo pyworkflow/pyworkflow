@@ -1,7 +1,7 @@
 class Signal(object):
-    def __init__(self, name, data):
+    def __init__(self, name, data = None):
         self.name = name
-        self.data = data
+        self.data = data or {}
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

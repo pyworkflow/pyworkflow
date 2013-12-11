@@ -57,7 +57,7 @@ class AmazonSWFProcess(Process):
         execution_desc = description.get('workflowExecution', None) or description.get('execution', None)
         if not execution_desc:
             return None
-            
+
         pid = execution_desc['workflowId']
 
         workflow = description.get('workflowType', {}).get('name', None)
@@ -70,9 +70,10 @@ class AmazonSWFProcess(Process):
             if start_attrs:
                 input = json.loads(start_attrs['input'])
                 tags = start_attrs['tagList']
+                parent = start_attrs.get('parentWorkflowExecution', {}).get('workflowId', None)
 
             event = cls.event_from_description(event_description, related=event_descriptions)
             if event:
                 history.append(event)
 
-        return AmazonSWFProcess(id=pid, workflow=workflow, input=input, tags=tags, history=history)
+        return AmazonSWFProcess(id=pid, workflow=workflow, input=input, tags=tags, history=history, parent=parent)

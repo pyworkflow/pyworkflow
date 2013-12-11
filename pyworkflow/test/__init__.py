@@ -4,10 +4,10 @@ import mock
 from time import sleep
 
 from datetime import datetime
-from ..exceptions import TimedOutException
+from ..exceptions import UnknownActivityException
 from ..process import Process
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
-from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity
+from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess
 from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
 from ..signal import Signal
 from ..task import ActivityTask
@@ -16,6 +16,8 @@ from ..managed import Activity, ActivityMonitor, Workflow, DefaultWorkflow, Mana
 from ..managed.worker import ActivityWorker, DecisionWorker, WorkerThread
 
 logging.getLogger('workflow').setLevel('DEBUG')
+
+pending_shipments = []
 
 class MultiplicationActivity(Activity):
     def execute(self):
@@ -42,9 +44,14 @@ class FooWorkflow(Workflow):
 class PaymentProcessingActivity(Activity):
     def execute(self):
         return True
+
 class ShipmentActivity(Activity):
+    auto_complete = False
+
     def execute(self):
+        pending_shipments.append(self.task)
         return True
+
 class CancelOrderActivity(Activity):
     def execute(self):
         return True
@@ -151,6 +158,8 @@ class WorkflowBasicTestCase(unittest.TestCase):
         assert isinstance(decision, CompleteProcess)
         process.history.append(DecisionEvent(decision))
 
+
+
 class WorkflowBackendTestCase(unittest.TestCase):
 
     def processes_approximately_equal(self, process1, process2):
@@ -218,7 +227,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         try:
             manager.complete_task(task, ActivityCompleted(result=result))
             assert False, "should have timed out and not allowed completion"
-        except TimedOutException, e:
+        except UnknownActivityException, e:
             pass
 
         # The task should be passed back to the decider
@@ -235,7 +244,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         try:
             manager.complete_task(task, ActivityCompleted(result=result))
             assert False, "should have timed out and not allowed completion"
-        except TimedOutException, e:
+        except UnknownActivityException, e:
             pass
 
     def subtest_basic(self):
@@ -389,9 +398,22 @@ class WorkflowBackendTestCase(unittest.TestCase):
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
             ]))
 
-        # Complete the decision task (complete process)
+        # Start child process
+        child_process = Process(workflow='test', input=[3,4])
+        parent = task.process.id
+        backend.complete_decision_task(task, StartChildProcess(child_process))
+
+        task = backend.poll_decision_task()
+        assert task.process.workflow == 'test'
+        assert task.process.parent == parent
+
+        # Complete the child process
         backend.complete_decision_task(task, CompleteProcess())
 
+        # Complete the parent process
+        task = backend.poll_decision_task()
+        backend.complete_decision_task(task, CompleteProcess())
+        
         # Verify there are now no more processes
         processes = list(backend.processes())
         assert processes == []
@@ -450,6 +472,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Create a manager and register the workflow
         manager = Manager(backend, workflows=[OrderWorkflow])
 
+        worker = ActivityWorker(manager)
+
         #
         # Order that will fail in payment
         #
@@ -493,7 +517,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Decide: -> payment processing
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
-        print task.process.history
         decisions = workflow.decide(task.process)
         manager.complete_task(task, decisions)
 
@@ -505,30 +528,30 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Decide: -> shipment x2
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
-        print task.process.history
         decisions = workflow.decide(task.process)
-        print decisions
         manager.complete_task(task, decisions)
 
-        # Activity: complete one
-        task = manager.next_activity()
-        activity = manager.activity_for_task(task)
+        # Activity: complete one, use worker
+        #task = manager.next_activity()
+        #activity = manager.activity_for_task(task)
+        worker.step()
+        assert len(pending_shipments) == 1
+        task = pending_shipments.pop()
         manager.complete_task(task, ActivityCompleted())
         
         # Decide: -> nothing
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
-        print task.process.history
         decisions = workflow.decide(task.process)
-        print decisions
         assert decisions == []
         manager.complete_task(task, decisions)
 
         # Activity: signal other
-        task2 = manager.next_activity()
-        activity2 = manager.activity_for_task(task2)
+        worker.step()
+        assert len(pending_shipments) == 1
+        task2 = pending_shipments.pop()        
         manager.signal_process(process, Signal('extra_shipment', data=300))
-        
+
         # Decide: -> extra shipment
         task = manager.next_decision()
         decisions = workflow.decide(task.process)
@@ -538,8 +561,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.complete_task(task, decisions)
 
         # Activity: complete both
-        task = manager.next_activity()
-        activity = manager.activity_for_task(task)
+        worker.step()
+        assert len(pending_shipments) == 1
+        task = pending_shipments.pop()        
         manager.complete_task(task, ActivityCompleted())
         manager.complete_task(task2, ActivityCompleted())
         

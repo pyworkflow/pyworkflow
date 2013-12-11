@@ -11,7 +11,7 @@ class Process(object):
             self._workflow = str(workflow)
 
         self._id = id or str(uuid4())
-        self._parent = None
+        self._parent = parent
         self._input = input
         self._history = history or []
         self._tags = tags or []

@@ -26,6 +26,15 @@ class CancelProcess(Decision):
     def __repr__(self):
         return 'CancelProcess(%s)' % (self.details)
 
+class StartChildProcess(Decision):
+    def __init__(self, process):
+        super(StartChildProcess, self).__init__('start_child_process')
+
+        self.process = process
+
+    def __repr__(self):
+        return 'StartChildProcess(%s)' % (self.process)
+
 class ScheduleActivity(Decision):
     def __init__(self, activity, id=None, category=None, input=None):
         super(ScheduleActivity, self).__init__('schedule_activity')

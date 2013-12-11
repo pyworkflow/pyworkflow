@@ -75,7 +75,8 @@ class BlinkerBackend(Backend):
             ScheduleActivity: BlinkerBackend.on_activity_scheduled,
             CancelActivity: BlinkerBackend.on_activity_canceled,
             CompleteProcess: BlinkerBackend.on_process_completed,
-            CancelProcess: BlinkerBackend.on_process_canceled
+            CancelProcess: BlinkerBackend.on_process_canceled,
+            StartChildProcess: BlinkerBackend.on_process_started
         }
 
         return mapping[decision.__class__]
@@ -98,13 +99,14 @@ class BlinkerBackend(Backend):
             signal = self.decision_signal(decision)
 
             args = {
-                'schedule_activity': lambda: {'activity_execution': ActivityExecution(decision.activity, decision.id, decision.input)},
-                'complete_process': lambda: {'result': decision.result},
-                'cancel_process': lambda: {'details': decision.details, 'reason': decision.reason},
-                'cancel_activity': lambda: {'activity_id': decision.id}
+                'schedule_activity': lambda: {'process': task.process, 'activity_execution': ActivityExecution(decision.activity, decision.id, decision.input)},
+                'complete_process': lambda: {'process': task.process, 'result': decision.result},
+                'cancel_process': lambda: {'process': task.process, 'details': decision.details, 'reason': decision.reason},
+                'cancel_activity': lambda: {'process': task.process, 'activity_id': decision.id},
+                'start_child_process': lambda: {'process': decision.process}
             }
 
-            signal.send(self, process=task.process, **args[decision.type]())
+            signal.send(self, **args[decision.type]())
 
         return ret        
 

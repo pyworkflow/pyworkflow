@@ -46,16 +46,17 @@ class DefaultWorkflow(Workflow):
             if isinstance(event.result, ActivityCompleted):
                 return self.respond_to_completed_activity(process, event.activity_execution, event.result.result)
             else:
-                return self.respond_to_interrupted_activity(process, event.activity_execution, event.result.details)
+                return self.respond_to_interrupted_activity(process, event.activity_execution, event.result)
         elif isinstance(event, SignalEvent):
             return self.respond_to_signal(process, event.signal)
 
     def decide(self, process):
         ensure_iter = lambda x: x if hasattr(x, '__iter__') else [x]
 
-        if len(process.history):
-            handler = lambda ev: filter(bool, ensure_iter(self.handle_event(ev, process)))
-            decisions = itertools.chain(*itertools.imap(handler, process.unseen_events()))
-            return reduce(lambda acc, d: acc+[d] if not d in acc else acc, decisions, [])
-        else:
-            return ensure_iter(self.initiate(process))
+        decisions = []
+        if not filter(lambda ev: ev.type == 'decision', process.history):
+            decisions.append(ensure_iter(self.initiate(process)))
+
+        handler = lambda ev: filter(bool, ensure_iter(self.handle_event(ev, process)))
+        decisions += map(handler, process.unseen_events()) # list of lists of decisions
+        return reduce(lambda acc, d: acc+[d] if not d in acc else acc, itertools.chain(*decisions), [])
