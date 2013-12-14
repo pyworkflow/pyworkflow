@@ -1,7 +1,7 @@
 import unittest
 
-from ...test import WorkflowBackendTestCase
-from . import MemoryBackend
+from ..test import WorkflowBackendTestCase
+from backend import MemoryBackend
 
 class MemoryBackendTestCase(WorkflowBackendTestCase):
     def setUp(self):

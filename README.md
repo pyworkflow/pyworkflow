@@ -8,8 +8,8 @@ based on that of Amazon Simple Workflow Framework (SWF). Different backends
 can be used allowing to leverage the full power of workflows without
 committing to any single execution environment. pyworkflow was initially
 written as an abstraction layer around Amazon SWF. However, different backends
-are included that. One could further imagine building a backend on a generic
-queueing system or any generic database.
+provide alternative execution environments. One could imagine building a
+backend on any generic queueing system or database.
 
 ## Usage
 
@@ -27,16 +27,16 @@ class MultiplicationActivity(Activity):
 	execution_timeout = 10  # max execution duration
 
 	def execute(self):
-		if not type(self.input) == list and not len(input) == 2:
+		if not type(self.input) == list and not len(self.input) == 2:
 			raise ValueError("invalid input")
 
-		if input[0] > 10:
+		if self.input[0] > 10:
 			return ActivityCanceled("first operand must be <= 10")
 
 		result = 0
-		for _ in range(0, input[0]):
+		for _ in range(0, self.input[0]):
 			# multiplication is repeated addition
-			result += input[1]
+			result += self.input[1]
 
 			# give a sign of life
 			self.heartbeat()
@@ -67,7 +67,7 @@ Then create a manager with a particular backend and register our workflows
 
 ````python
 from pyworkflow.managed import Manager
-from pyworkflow.backend.foo import FooBackend
+from pyworkflow.foo import FooBackend
 
 workflows = [FooWorkflow]
 manager = Manager(backend=FooBackend(), workflows=workflows)
@@ -75,14 +75,14 @@ manager = Manager(backend=FooBackend(), workflows=workflows)
 
 To start an activity worker (in a separate thread/process; is blocking)
 ````python
-from pyworkflow.managed.worker import ActivityWorker
-ActivityWorker(manager).run()
+from pyworkflow.managed.worker import WorkerThread, ActivityWorker
+WorkerThread(ActivityWorker(manager)).run()
 ````
 
 Or a decider:
 ````python
-from pyworkflow.managed.worker import DecisionWorker
-DecisionWorker(manager).run()
+from pyworkflow.managed.worker import WorkerThread, DecisionWorker
+WorkerThread(DecisionWorker(manager)).run()
 ````
 
 To start a new process
@@ -93,41 +93,41 @@ manager.start_process(process)
 
 ## Backends
 
-### Amazon Simple Workflow Framework
-
-AmazonSWFBackend supports integration of pyworkflow with Amazon's Simple
-Workflow Framework service.
-
-````python
-from pyworkflow.backend.amazonswf import AmazonSWFBackend
-from pyworkflow.managed import Manager
-
-backend = AmazonSWFBackend(ACCESS_KEY_ID, SECRET_ACCESS_KEY, region='us-east-1', domain='foo.bar')
-manager = Manager(backend=backend)
-````
-
-### Memory
+### Memory (included)
 
 MemoryBackend provides a rudimentary in-memory backend. It is mainly useful
 for testing and development purposes. Be aware that it is not thread-safe.
 
 ````python
-from pyworkflow.backend.memory import MemoryBackend
+from pyworkflow.memory import MemoryBackend
 from pyworkflow.managed import Manager
 
 backend = MemoryBackend()
 manager = Manager(backend=backend)
 ````
 
+### Amazon Simple Workflow Framework
+
+[pyworkflow.amazonswf](https://github.com/pyworkflow/pyworkflow.amazonswf) supports integration of pyworkflow with Amazon's Simple
+Workflow Framework service.
+
+````python
+from pyworkflow.amazonswf import AmazonSWFBackend
+from pyworkflow.managed import Manager
+
+backend = AmazonSWFBackend(ACCESS_KEY_ID, SECRET_ACCESS_KEY, region='us-east-1', domain='foo.bar')
+manager = Manager(backend=backend)
+````
+
 ### Datastore
 
-DatastoreBackend provides a simple backend that stores execution state to a
+[pyworkflow.datastore](https://github.com/pyworkflow/pyworkflow.datastore) provides a simple backend that stores execution state to a
 datastore [https://github.com/datastore/datastore](https://github.com/datastore/datastore). It is mainly useful 
 during development.
 
 ````python
 from datastore.filesystem import FileSystemDatastore()
-from pyworkflow.backend.datastore import DatastoreBackend
+from pyworkflow.datastore import DatastoreBackend
 from pyworkflow.managed import Manager
 
 ds = FileSystemDatastore('/tmp/.pyworkflow_datastore')
@@ -137,15 +137,15 @@ manager = Manager(backend=backend)
 
 ### Blinker
 
-BlinkerBackend wraps around any other backend and emits [blinker](http://pythonhosted.org/blinker/) signals on
+[pyworkflow.blinker](https://github.com/pyworkflow/pyworkflow.blinker) wraps around any other backend and emits [blinker](http://pythonhosted.org/blinker/) signals on
 important runtime events on activities and decisions.
 
 ````python
-from pyworkflow.backend.foo import FooBackend
-from pyworkflow.backend.blinker import BlinkerBackend
+from pyworkflow.memory import MemoryBackend
+from pyworkflow.blinker import BlinkerBackend
 from pyworkflow.managed import Manager
 
-backend = BlinkerBackend(FooBackend())
+backend = BlinkerBackend(MemoryBackend())
 manager = Manager(backend=backend)
 
 # listen to process started signal
@@ -225,6 +225,6 @@ pyworkflow is under the MIT License.
 
 pyworkflow is written by [Willem Bult](https://github.com/willembult).
 
-Project Homepage: [https://github.com/RentMethod/pyworkflow](https://github.com/RentMethod/pyworkflow)
+Project Homepage: [https://github.com/pyworkflow/pyworkflow](https://github.com/pyworkflow/pyworkflow)
 
 Feel free to contact me. But please file issues in github first. Thanks!

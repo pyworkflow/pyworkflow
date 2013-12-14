@@ -3,15 +3,15 @@ from collections import deque
 from datetime import datetime, timedelta
 from uuid import uuid4
 
-from .. import Backend
-from ...activity import *
-from ...exceptions import TimedOutException, UnknownActivityException, UnknownDecisionException
-from ...events import *
-from ...decision import *
-from ...task import *
-from ...process import Process
-from ...signal import *
-from ...defaults import Defaults
+from ..backend import Backend
+from ..activity import *
+from ..exceptions import TimedOutException, UnknownActivityException, UnknownDecisionException
+from ..events import *
+from ..decision import *
+from ..task import *
+from ..process import Process
+from ..signal import *
+from ..defaults import Defaults
 
 class MemoryBackend(Backend):
     '''

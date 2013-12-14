@@ -1,4 +1,4 @@
-from ..defaults import Defaults
+from defaults import Defaults
 
 class Backend(object):
     def register_workflow(self, name, version="1.0", timeout=Defaults.WORKFLOW_TIMEOUT, decision_timeout=Defaults.DECISION_TIMEOUT):
