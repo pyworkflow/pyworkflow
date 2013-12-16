@@ -12,7 +12,7 @@ class DecisionWorker(object):
         self.name = name or str(uuid4())
 
     def decide(self, task, workflow):
-        decisions = workflow.decide(task.process)
+        decisions = workflow.decide(task.process)        
 
         # Convert Activity results to ScheduleActivity decisions
         def convert(decision):
@@ -33,13 +33,18 @@ class DecisionWorker(object):
                 logger.info("Worker %s: Starting %s" % (self.name, task))
 
             workflow = self.manager.workflow_for_task(task)
-            decisions = self.decide(task, workflow)
-
+            try:
+                decisions = self.decide(task, workflow)
+            except Exception, e:
+                logger.exception("Worker %s: Error in decision task %s: %s" % (self.name, task, str(e)))
+                return True # we consumed a task
+            
             if logger:
-                logger.info("Worker %s: Completed %s: %s" % (self.name, task, decisions))
+                logger.info("Worker %s: Completed %s with result %s" % (self.name, task, decisions))
 
             self.manager.complete_task(task, decisions)
-            return True
+
+            return True # we consumed a task
 
     def __repr__(self):
         return 'DecisionWorker(%s, %s)' % (self.manager, self.name)

@@ -10,7 +10,7 @@ class ActivityTask(Task):
 		self.context = context or {}
 
 	def __repr__(self):
-		return 'ActivityTask(%s, %s, %s)' % (self.activity_execution, self.process_id, self.context)
+		return 'ActivityTask(%s, %s)' % (self.activity_execution, self.process_id)
 
 class DecisionTask(Task):
 	def __init__(self, process, context=None):
@@ -20,4 +20,4 @@ class DecisionTask(Task):
 		self.context = context or {}
 	
 	def __repr__(self):
-		return 'DecisionTask(%s, %s)' % (self.process, self.context)
+		return 'DecisionTask(%s)' % (self.process)

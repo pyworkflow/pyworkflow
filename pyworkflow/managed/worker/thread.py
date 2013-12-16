@@ -29,7 +29,7 @@ class WorkerThread(threading.Thread):
                 if not self.worker.step(logger=self.logger):
                     sleep(self.delay_on_idle)
             except Exception, e:
-                self.logger.error("Worker %s encountered error while getting activity: %s" % (self.worker, traceback.format_exc()))
+                self.logger.exception("Worker %s encountered error while performing step" % (self.worker))
 
         self.logger.info("Worker finished: %s" % (self.worker))
 
