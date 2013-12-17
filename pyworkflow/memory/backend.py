@@ -9,7 +9,7 @@ from ..exceptions import TimedOutException, UnknownActivityException, UnknownDec
 from ..events import *
 from ..decision import *
 from ..task import *
-from ..process import Process
+from ..process import *
 from ..signal import *
 from ..defaults import Defaults
 
@@ -155,7 +155,12 @@ class MemoryBackend(Backend):
                 del self.running_processes[managed_process.id]
                 self._cancel_decision(managed_process)
                 if managed_process.parent:
-                    self._schedule_decision(self._managed_process(managed_process.parent))
+                    parent = self._managed_process(managed_process.parent)
+                    if decision.type == 'complete_process':
+                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result)))
+                    elif decision_type == 'cancel_process':
+                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCancelled(details=decision.details, reason=decision.reason)))
+                    self._schedule_decision(parent)
 
             # start child process
             if isinstance(decision, StartChildProcess):

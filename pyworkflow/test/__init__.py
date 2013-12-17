@@ -1,14 +1,15 @@
 import logging
 import unittest
 import mock
+from copy import deepcopy
 from time import sleep
 
 from datetime import datetime
 from ..exceptions import UnknownActivityException
-from ..process import Process
+from ..process import Process, ProcessCompleted
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
 from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess
-from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent
+from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent
 from ..signal import Signal
 from ..task import ActivityTask
 
@@ -162,8 +163,16 @@ class WorkflowBasicTestCase(unittest.TestCase):
 
 class WorkflowBackendTestCase(unittest.TestCase):
 
+    def events_approximately_equal(self, event1, event2):
+        assert type(event1) == type(event2)
+        event2_adjusted = deepcopy(event2)
+        event2_adjusted.datetime = event1.datetime
+
+        assert event2_adjusted == event1
+        return True
+
     def processes_approximately_equal(self, process1, process2):
-        ''' Verify the two processes are equal (except for slight timestamp difference) '''
+        ''' Verify the two processes are equal (except for timestamp difference) '''
         assert process1.id == process2.id
         assert process1.workflow == process2.workflow
         assert process1.input == process2.input
@@ -171,25 +180,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         for idx,event1 in enumerate(process1.history):
             event2 = process2.history[idx]
-
-            assert type(event1) == type(event2)
-
-            if event2.datetime > event1.datetime:
-                assert (event2.datetime - event1.datetime).seconds <= 10
-            else:
-                assert (event1.datetime - event2.datetime).seconds <= 10
-
-            if isinstance(event1, DecisionEvent):
-                assert event1.decision == event2.decision
-            elif isinstance(event1, ActivityEvent):
-                assert event1.activity_execution == event2.activity_execution
-                assert event1.result == event2.result
-            elif isinstance(event1, ActivityStartedEvent):
-                assert event1.activity_execution == event2.activity_execution
-            elif isinstance(event1, SignalEvent):
-                assert event1.signal == event2.signal
-            else:
-                assert False, "Unknown event type"
+            assert self.events_approximately_equal(event1, event2)
+            
         return True
 
     def construct_backend(self):
@@ -408,10 +400,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert task.process.parent == parent
 
         # Complete the child process
-        backend.complete_decision_task(task, CompleteProcess())
+        backend.complete_decision_task(task, CompleteProcess(result=50))
 
         # Complete the parent process
         task = backend.poll_decision_task()
+        print task.process.history[-1].__dict__
+        print ChildProcessEvent(process_id=child_process.id, result=ProcessCompleted(result=50)).__dict__
+        assert self.events_approximately_equal(task.process.history[-1], ChildProcessEvent(process_id=child_process.id, result=ProcessCompleted(result=50)))
         backend.complete_decision_task(task, CompleteProcess())
         
         # Verify there are now no more processes

@@ -65,4 +65,53 @@ class Process(object):
         return self.__dict__ == other.__dict__
 
     def __repr__(self):
-        return 'Process(%s, %s, %s, %s)' % (self.workflow, self.id, self.input, self.tags)
+        return 'Process(%s, %s, %s, %s, %s)' % (self.workflow, self.id, self.input, self.tags, self.parent)
+
+
+
+class ProcessResult(object):
+    def __init__(self, result_type):
+        self.type = result_type
+        
+    def __eq__(self, other):
+        return self.__dict__ == other.__dict__
+
+class InterruptedProcessResult(ProcessResult, Exception):
+    def __init__(self, result_type):
+        super(InterruptedProcessResult, self).__init__(result_type)
+
+class ProcessCompleted(ProcessResult):
+    def __init__(self, result=None):
+        super(ProcessCompleted, self).__init__('completed')
+        self.result = result
+
+    def __repr__(self):
+        return 'ProcessCompleted(%s)' % self.result
+
+class ProcessCanceled(InterruptedProcessResult):
+    ''' The cancelation of a process '''
+    def __init__(self, details=None):
+        super(ProcessCanceled, self).__init__('canceled')
+        self.details = details
+
+    def __repr__(self):
+        return 'ProcessCanceled(%s)' % self.details
+
+class ProcessFailed(InterruptedProcessResult):
+    ''' The failure of a process '''
+    def __init__(self, reason=None, details=None):
+        super(ProcessFailed, self).__init__('failed')
+        self.reason = reason
+        self.details = details
+
+    def __repr__(self):
+        return 'ProcessFailed(%s,%s)' % (self.reason, self.details)
+
+class ProcessTimedOut(InterruptedProcessResult):
+    ''' The time out of a process '''
+    def __init__(self, details=None):
+        super(ProcessTimedOut, self).__init__('timedout')
+        self.details = details
+
+    def __repr__(self):
+        return 'ProcessTimedOut(%s)' % self.details

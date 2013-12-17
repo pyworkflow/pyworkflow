@@ -40,3 +40,12 @@ class SignalEvent(Event):
 
     def __repr__(self):
         return 'SignalEvent(%s)' % (repr(self.signal))
+
+class ChildProcessEvent(Event):
+    def __init__(self, process_id, result, **kwargs):
+        super(ChildProcessEvent, self).__init__('child_process', **kwargs)
+        self.process_id = process_id
+        self.result = result
+
+    def __repr__(self):
+        return 'ChildProcessEvent(%s, %s)' % (repr(self.process), repr(self.result))
