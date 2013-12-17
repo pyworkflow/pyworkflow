@@ -12,7 +12,9 @@ class DecisionWorker(object):
         self.name = name or str(uuid4())
 
     def decide(self, task, workflow):
-        decisions = workflow.decide(task.process)        
+        decisions = workflow.decide(task.process)
+        if not decisions:
+            return []
 
         # Convert Activity results to ScheduleActivity decisions
         def convert(decision):
