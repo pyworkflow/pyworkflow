@@ -7,6 +7,9 @@ class Backend(object):
     def register_activity(self, name, version="1.0", category="default", scheduled_timeout=Defaults.ACTIVITY_SCHEDULED_TIMEOUT, execution_timeout=Defaults.ACTIVITY_EXECUTION_TIMEOUT, heartbeat_timeout=Defaults.ACTIVITY_HEARTBEAT_TIMEOUT):
         raise NotImplementedError()
 
+    def process_by_id(self, pid):
+        raise NotImplementedError()
+
     def processes(self, workflow=None, tag=None):
         raise NotImplementedError()     
     
@@ -33,14 +36,3 @@ class Backend(object):
 
     def complete_activity_task(self, task, result=None):
         raise NotImplementedError()
-
-class MonitoredBackend(Backend):
-    def __init__(self, primary_backend, monitor_backends):
-        self.primary = primary_backend
-        self.monitors = monitor_backends
-
-    def poll_activity_task(self, category="default", identity=None):
-        return self.primary.poll_activity_task(category=category, identity=identity)
-
-    def poll_decision_task(self, identity=None):
-        return self.primary.poll_decision_task(identity=identity)

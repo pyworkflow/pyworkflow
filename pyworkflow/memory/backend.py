@@ -85,6 +85,7 @@ class MemoryBackend(Backend):
 
     def start_process(self, process):
         # register the process
+        process = process.copy_with_id(str(uuid4()))
         self.running_processes[process.id] = process
         # schedule a decision
         self._schedule_decision(process)
@@ -185,7 +186,11 @@ class MemoryBackend(Backend):
         # schedule a decision (if needed)
         self._schedule_decision(managed_process)
 
+    def process_by_id(self, pid):
+        return self._managed_process(pid)
+
     def processes(self, workflow=None, tag=None):
+        print self.running_processes.values()
         return ifilter(lambda p: (p.workflow == workflow or not workflow) and (tag in p.tags or not tag), self.running_processes.values())
 
     def _time_out_activities(self):

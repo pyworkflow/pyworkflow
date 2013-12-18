@@ -10,7 +10,7 @@ class Process(object):
         except:
             self._workflow = str(workflow)
 
-        self._id = id or str(uuid4())
+        self._id = id
         self._parent = parent
         self._input = input
         self._history = history or []
@@ -39,6 +39,9 @@ class Process(object):
     @property
     def tags(self):
         return self._tags
+
+    def copy_with_id(self, id):
+        return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent)
 
     def unseen_events(self):
         def before_decision(iterable):

@@ -59,6 +59,9 @@ class Manager(object):
     def heartbeat(self, task):
         self._backend.heartbeat_activity_task(task)
 
+    def process_by_id(self, process_id):
+        return self._backend.process_by_id(process_id)
+
     def processes(self, workflow=None, tag=None):
         workflow_name = None
         if workflow:
