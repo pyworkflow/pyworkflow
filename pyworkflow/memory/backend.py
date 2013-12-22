@@ -190,7 +190,6 @@ class MemoryBackend(Backend):
         return self._managed_process(pid)
 
     def processes(self, workflow=None, tag=None):
-        print self.running_processes.values()
         return ifilter(lambda p: (p.workflow == workflow or not workflow) and (tag in p.tags or not tag), self.running_processes.values())
 
     def _time_out_activities(self):

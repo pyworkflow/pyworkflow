@@ -159,6 +159,19 @@ class WorkflowBasicTestCase(unittest.TestCase):
         assert isinstance(decision, CompleteProcess)
         process.history.append(DecisionEvent(decision))
 
+    def test_process(self):
+        process = Process(id='p1', workflow='test', input=2, tags=[], history=[
+            SignalEvent(signal=Signal('signal1', {'test': 123})),
+            DecisionEvent(decision=ScheduleActivity('act1', id='1', input=2)),
+            SignalEvent(signal=Signal('signal2', {'test': 123})),
+            DecisionEvent(decision=StartChildProcess(Process(id='p2', workflow='testsub', input=1))),
+        ])
+
+        unseen = process.unseen_events()
+        assert unseen == []
+
+        unfinished = process.unfinished_activities()
+        assert unfinished == [ActivityExecution('act1', '1', 2)]
 
 
 class WorkflowBackendTestCase(unittest.TestCase):
@@ -254,7 +267,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify we can read it back by tags
         processes = list(backend.processes(tag="foo"))
-        print processes
         assert len(processes) == 1
         pid1 = processes[0].id
         assert processes == [Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[])]
@@ -405,8 +417,24 @@ class WorkflowBackendTestCase(unittest.TestCase):
             ]))
 
         # Start child process
-        child_process = Process(workflow='test', input=[3,4], tags=['test-child'])
+        child_process = Process(workflow='test', input=[3,4], tags=[u'test-child'])
         backend.complete_decision_task(task, StartChildProcess(child_process))
+
+        # Verify the start child process is in the history
+        processes = list(backend.processes(tag='foo'))
+        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+            DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
+            SignalEvent(signal=Signal('some_signal', {'test': 123})),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
+            DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
+            DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
+            ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed),
+            DecisionEvent(decision=StartChildProcess(child_process))
+            ]))
 
         parent_id = task.process.id
 
@@ -418,6 +446,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Complete the child process
         backend.complete_decision_task(task, CompleteProcess(result=50))
+
+        sleep(.5)
 
         # Complete the parent process
         task = backend.poll_decision_task()
@@ -474,8 +504,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
             ActivityStartedEvent(ActivityExecution('Multiplication', activity_id, [2,3])),
             ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed)
         ])
-        print expected
-        print task.process
         assert self.processes_approximately_equal(task.process, expected)
 
         decision = workflow.decide(task.process)

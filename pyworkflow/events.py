@@ -48,4 +48,4 @@ class ChildProcessEvent(Event):
         self.result = result
 
     def __repr__(self):
-        return 'ChildProcessEvent(%s, %s)' % (repr(self.process), repr(self.result))
+        return 'ChildProcessEvent(%s, %s)' % (repr(self.process_id), repr(self.result))
