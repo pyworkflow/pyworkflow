@@ -8,7 +8,7 @@ from datetime import datetime
 from ..exceptions import UnknownActivityException
 from ..process import Process, ProcessCompleted
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
-from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess
+from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess, Timer
 from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent
 from ..signal import Signal
 from ..task import ActivityTask
@@ -42,6 +42,13 @@ class FooWorkflow(Workflow):
         else:
             return CompleteProcess()
 
+class TimerTestWorkflow(Workflow):
+    def decide(self, process):
+        if len(process.history) == 0:
+            return Timer(1)
+        else:
+            return CompleteProcess()
+
 class PaymentProcessingActivity(Activity):
     def execute(self):
         return True
@@ -56,6 +63,7 @@ class ShipmentActivity(Activity):
 class CancelOrderActivity(Activity):
     def execute(self):
         return True
+
 
 class OrderWorkflow(DefaultWorkflow):
     activities = [PaymentProcessingActivity, ShipmentActivity, CancelOrderActivity]
@@ -676,6 +684,39 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify termination
         assert decisions == [CancelProcess()]
         assert list(manager.processes()) == []
+
+    def subtest_timer(self):
+        backend = self.construct_backend()
+        manager = Manager(backend, workflows=[TimerTestWorkflow])
+
+        process = Process(workflow=TimerTestWorkflow)
+        manager.start_process(process)
+
+        processes = list(backend.processes())
+        assert len(processes) == 1
+        pid = processes[0].id
+
+        # Decide: -> timer
+        task = manager.next_decision()
+        workflow = manager.workflow_for_task(task)
+        decision = workflow.decide(task.process)
+        date_scheduled = datetime.now()
+        manager.complete_task(task, decision)
+        self.assertEquals(decision, Timer(1))
+
+        sleep(1)
+
+        # Activity: abort
+        task = manager.next_decision()
+        assert self.processes_approximately_equal(task.process, Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
+            DecisionEvent(decision=Timer(1), datetime=date_scheduled),            
+            ]))
+        workflow = manager.workflow_for_task(task)
+        decision = workflow.decide(task.process)
+        manager.complete_task(task, decision)
+        
+        processes = list(backend.processes())
+        assert len(processes) == 0
 
     def subtest_threads(self):
         '''

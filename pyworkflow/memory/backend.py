@@ -54,11 +54,11 @@ class MemoryBackend(Backend):
         for (key, a) in to_cancel:
             del self.running_activities[key]
 
-    def _schedule_decision(self, process):
+    def _schedule_decision(self, process, start=None):
         existing = filter(lambda a: a[0] == process, self.scheduled_decisions)
         if not len(existing):
             expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
-            self.scheduled_decisions.append((process, expiration))
+            self.scheduled_decisions.append((process, start or datetime.now(), expiration))
 
     def _cancel_decision(self, process):
         to_cancel = filter(lambda a: a[0] == process, self.scheduled_decisions)
@@ -169,6 +169,11 @@ class MemoryBackend(Backend):
                 self.running_processes[process.id] = process
                 self._schedule_decision(process)
 
+            # schedule timer
+            if isinstance(decision, Timer):
+                self._schedule_decision(managed_process, start=datetime.now() + timedelta(seconds=decision.delay))
+
+
     def complete_activity_task(self, task, result=None):
         self._time_out_activities()
 
@@ -241,8 +246,10 @@ class MemoryBackend(Backend):
         # find queued decision tasks (that haven't timed out)
         try:
             while True:
-                (process, expiration) = self.scheduled_decisions.popleft()
-                if expiration >= datetime.now():
+                (process, start, expiration) = self.scheduled_decisions.popleft()
+                if start > datetime.now():
+                    self.scheduled_decisions.append((process, start, expiration))
+                elif expiration >= datetime.now():
                     break
         except:
             return None

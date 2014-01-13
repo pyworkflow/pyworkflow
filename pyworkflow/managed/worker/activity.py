@@ -34,11 +34,11 @@ class ActivityWorker(object):
 
     def log_result(self, task, result, logger):
         if isinstance(result, ActivityCompleted):
-            logger.info("Worker %s: Completed %s with result %s" % (self.name, task, result), extra={'result':result})
+            logger.info("Worker %s: Completed %s with result %s" % (self.name, task, result))
         elif isinstance(result, ActivityCanceled):
-            logger.info("Worker %s: Aborted %s with result %s" % (self.name, task, result), extra={'result':result})
+            logger.info("Worker %s: Aborted %s with result %s" % (self.name, task, result))
         elif isinstance(result, ActivityFailed):
-            logger.warning("Worker %s: Failed %s with result %s" % (self.name, task, result), extra={'result':result})
+            logger.warning("Worker %s: Failed %s with result %s" % (self.name, task, result))
         elif result is None:
             logger.info("Worker %s: Handed off %s" % (self.name, task))
         
