@@ -9,7 +9,7 @@ from ..exceptions import UnknownActivityException
 from ..process import Process, ProcessCompleted
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
 from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess, Timer
-from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent
+from ..events import DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent, TimerEvent
 from ..signal import Signal
 from ..task import ActivityTask
 
@@ -45,7 +45,7 @@ class FooWorkflow(Workflow):
 class TimerTestWorkflow(Workflow):
     def decide(self, process):
         if len(process.history) == 0:
-            return Timer(1)
+            return Timer(1, {'foo': 'bar'})
         else:
             return CompleteProcess()
 
@@ -189,6 +189,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         event2_adjusted = deepcopy(event2)
         event2_adjusted.datetime = event1.datetime
 
+        print event1
+        print event2
         assert event2_adjusted == event1
         return True
 
@@ -702,14 +704,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
         decision = workflow.decide(task.process)
         date_scheduled = datetime.now()
         manager.complete_task(task, decision)
-        self.assertEquals(decision, Timer(1))
+        self.assertEquals(decision, Timer(1, {'foo': 'bar'}))
 
         sleep(1)
 
         # Activity: abort
         task = manager.next_decision()
         assert self.processes_approximately_equal(task.process, Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
-            DecisionEvent(decision=Timer(1), datetime=date_scheduled),            
+            DecisionEvent(decision=Timer(1, {'foo': 'bar'}), datetime=date_scheduled),
+            TimerEvent(timer=Timer(1, {'foo': 'bar'}))
             ]))
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)

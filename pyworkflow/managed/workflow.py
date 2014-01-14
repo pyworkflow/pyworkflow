@@ -1,7 +1,7 @@
 import itertools
 from ..util import classproperty
 from ..defaults import Defaults
-from ..events import ActivityEvent, DecisionEvent, SignalEvent
+from ..events import ActivityEvent, DecisionEvent, SignalEvent, TimerEvent
 from ..activity import ActivityCompleted
 
 class Workflow(object):
@@ -41,6 +41,9 @@ class DefaultWorkflow(Workflow):
     def respond_to_signal(self, process, signal):
         raise NotImplementedError()
 
+    def respond_to_timer(self, process, timer):
+        raise NotImplementedError()
+
     def handle_event(self, event, process):
         if isinstance(event, ActivityEvent):
             if isinstance(event.result, ActivityCompleted):
@@ -49,6 +52,8 @@ class DefaultWorkflow(Workflow):
                 return self.respond_to_interrupted_activity(process, event.activity_execution, event.result)
         elif isinstance(event, SignalEvent):
             return self.respond_to_signal(process, event.signal)
+        elif isinstance(event, TimerEvent):
+            return self.respond_to_timer(process, event.timer)
 
     def decide(self, process):
         ensure_iter = lambda x: x if hasattr(x, '__iter__') else [x]

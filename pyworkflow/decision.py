@@ -61,9 +61,10 @@ class CancelActivity(Decision):
         return 'CancelActivity(%s)' % self.id
 
 class Timer(Decision):
-    def __init__(self, delay):
+    def __init__(self, delay, data=None):
         super(Timer, self).__init__('timer')
         self.delay = delay
+        self.data = data or {}
 
     def __repr__(self):
-        return 'Timer(%s)' % self.delay
+        return 'Timer(%s, %s)' % (self.delay, self.data)

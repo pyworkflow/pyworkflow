@@ -41,6 +41,14 @@ class SignalEvent(Event):
     def __repr__(self):
         return 'SignalEvent(%s)' % (repr(self.signal))
 
+class TimerEvent(Event):
+    def __init__(self, timer, **kwargs):
+        super(TimerEvent, self).__init__('timer', **kwargs)
+        self.timer = timer
+
+    def __repr__(self):
+        return 'TimerEvent(%s)' % (repr(self.timer))
+
 class ChildProcessEvent(Event):
     def __init__(self, process_id, result, **kwargs):
         super(ChildProcessEvent, self).__init__('child_process', **kwargs)
