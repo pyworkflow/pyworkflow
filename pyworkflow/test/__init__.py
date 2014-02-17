@@ -189,8 +189,6 @@ class WorkflowBackendTestCase(unittest.TestCase):
         event2_adjusted = deepcopy(event2)
         event2_adjusted.datetime = event1.datetime
 
-        print event1
-        print event2
         assert event2_adjusted == event1
         return True
 
@@ -705,6 +703,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         date_scheduled = datetime.now()
         manager.complete_task(task, decision)
         self.assertEquals(decision, Timer(1, {'foo': 'bar'}))
+
+        task = manager.next_decision()
+        assert task is None
 
         sleep(1)
 

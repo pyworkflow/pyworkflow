@@ -244,17 +244,18 @@ class MemoryBackend(Backend):
         self._time_out_decisions()
 
         # find queued decision tasks (that haven't timed out)
-        try:
-            while True:
-                (process, start, expiration, timer) = self.scheduled_decisions.popleft()
-                if start and start > datetime.now():
-                    self.scheduled_decisions.append((process, start, expiration, timer))
-                elif expiration >= datetime.now():
-                    if start:
-                        process.history.append(TimerEvent(timer))
+        for d in self.scheduled_decisions:
+            (process, start, expiration, timer) = d
+            if start and start > datetime.now():
+                continue
+                #self.scheduled_decisions.append((process, start, expiration, timer))
+            elif expiration >= datetime.now():
+                if start:
+                    process.history.append(TimerEvent(timer))
 
-                    break
-        except:
+                self.scheduled_decisions.remove(d)
+                break
+        else:
             return None
 
         run_id = str(uuid4())
