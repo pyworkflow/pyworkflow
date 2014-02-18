@@ -20,6 +20,8 @@ logging.getLogger('workflow').setLevel('DEBUG')
 
 pending_shipments = []
 
+timer_delay = 1
+
 class MultiplicationActivity(Activity):
     def execute(self):
         self.heartbeat()
@@ -45,7 +47,7 @@ class FooWorkflow(Workflow):
 class TimerTestWorkflow(Workflow):
     def decide(self, process):
         if len(process.history) == 0:
-            return Timer(1, {'foo': 'bar'})
+            return Timer(timer_delay, {'foo': 'bar'})
         else:
             return CompleteProcess()
 
@@ -459,7 +461,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Complete the parent process
         task = backend.poll_decision_task()
-        assert self.events_approximately_equal(task.process.history[-1], ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50)))
+        assert self.events_approximately_equal(task.process.history[-1], ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50), workflow='test', tags=[u'test-child']))
         backend.complete_decision_task(task, CompleteProcess())
         
         # Verify there are now no more processes
@@ -702,18 +704,16 @@ class WorkflowBackendTestCase(unittest.TestCase):
         decision = workflow.decide(task.process)
         date_scheduled = datetime.now()
         manager.complete_task(task, decision)
-        self.assertEquals(decision, Timer(1, {'foo': 'bar'}))
+        self.assertEquals(decision, Timer(timer_delay, {'foo': 'bar'}))
 
-        task = manager.next_decision()
-        assert task is None
-
-        sleep(1)
+        # no use checking for absence of tasks here, some backends are long-polling
+        sleep(timer_delay)
 
         # Activity: abort
         task = manager.next_decision()
         assert self.processes_approximately_equal(task.process, Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
-            DecisionEvent(decision=Timer(1, {'foo': 'bar'}), datetime=date_scheduled),
-            TimerEvent(timer=Timer(1, {'foo': 'bar'}))
+            DecisionEvent(decision=Timer(timer_delay, {'foo': 'bar'}), datetime=date_scheduled),
+            TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'}))
             ]))
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)

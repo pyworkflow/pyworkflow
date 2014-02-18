@@ -55,5 +55,8 @@ class ChildProcessEvent(Event):
         self.process_id = process_id
         self.result = result
 
+        self.tags = kwargs.get('tags', None)
+        self.workflow = kwargs.get('workflow', None)
+
     def __repr__(self):
-        return 'ChildProcessEvent(%s, %s)' % (repr(self.process_id), repr(self.result))
+        return 'ChildProcessEvent(%s, %s, tags=%s, workflow=%s)' % (repr(self.process_id), repr(self.result), repr(self.tags), repr(self.workflow))

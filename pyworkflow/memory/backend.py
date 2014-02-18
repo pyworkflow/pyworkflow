@@ -158,9 +158,9 @@ class MemoryBackend(Backend):
                 if managed_process.parent:
                     parent = self._managed_process(managed_process.parent)
                     if decision.type == 'complete_process':
-                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result)))
+                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result), workflow=managed_process.workflow, tags=managed_process.tags))
                     elif decision_type == 'cancel_process':
-                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCancelled(details=decision.details, reason=decision.reason)))
+                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCancelled(details=decision.details, reason=decision.reason), workflow=managed_process.workflow, tags=managed_process.tags))
                     self._schedule_decision(parent)
 
             # start child process
