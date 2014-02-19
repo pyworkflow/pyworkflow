@@ -451,6 +451,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = backend.poll_decision_task()
         assert task.process.workflow == 'test'
         assert task.process.parent == parent_id
+        assert task.process.id is not None
 
         child_id = task.process.id
 

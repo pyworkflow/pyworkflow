@@ -165,7 +165,7 @@ class MemoryBackend(Backend):
 
             # start child process
             if isinstance(decision, StartChildProcess):
-                process = Process(workflow=decision.process.workflow, id=decision.process.id, input=decision.process.input, tags=decision.process.tags, parent=task.process.id)
+                process = Process(workflow=decision.process.workflow, id=decision.process.id or str(uuid4()), input=decision.process.input, tags=decision.process.tags, parent=task.process.id)
                 self.running_processes[process.id] = process
                 self._schedule_decision(process)
 
