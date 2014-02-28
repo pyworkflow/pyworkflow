@@ -30,7 +30,7 @@ class MemoryBackend(Backend):
 
         self.scheduled_decisions = deque([])
         self.scheduled_activities = deque([])
-
+        
     def _managed_process(self, pid):
         return self.running_processes[pid]
 
@@ -53,10 +53,12 @@ class MemoryBackend(Backend):
         to_cancel = filter(lambda (key, a): a[0].id == id, self.running_activities.items())
         for (key, a) in to_cancel:
             del self.running_activities[key]
+            
 
     def _schedule_decision(self, process, start=None, timer=None):
         existing = filter(lambda a: a[0] == process, self.scheduled_decisions)
-        if not len(existing):
+        matching = filter(lambda a: not a[1] or a[1] <= (start or datetime.now()), existing)
+        if timer or not len(matching):
             expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
             self.scheduled_decisions.append((process, start, expiration, timer))
 
@@ -90,9 +92,10 @@ class MemoryBackend(Backend):
         # schedule a decision
         self._schedule_decision(process)
         
-    def signal_process(self, process, signal, data=None):
+    def signal_process(self, process_or_id, signal, data=None):
         # find the process as we know it
-        managed_process = self._managed_process(process.id)
+        pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
+        managed_process = self._managed_process(pid)
 
         # append the signal event
         managed_process.history.append(SignalEvent(Signal(signal, data)))
@@ -100,9 +103,10 @@ class MemoryBackend(Backend):
         # schedule a decision (if needed)
         self._schedule_decision(managed_process)
 
-    def cancel_process(self, process, details=None, reason=None):
+    def cancel_process(self, process_or_id, details=None, reason=None):
         # find the process as we know it
-        managed_process = self._managed_process(process.id)
+        pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
+        managed_process = self._managed_process(pid)
 
         # append the cancelation event
         managed_process.history.append(DecisionEvent(CancelProcess(details=details, reason=reason)))
@@ -122,6 +126,7 @@ class MemoryBackend(Backend):
         # replace with new heartbeat timeout
         activity[3] = datetime.now() + timedelta(seconds=self.activities[activity[0].activity]['heartbeat_timeout'])
         self.running_activities[task.context['run_id']] = activity
+            
 
     def complete_decision_task(self, task, decisions):
         self._time_out_decisions()
@@ -147,21 +152,22 @@ class MemoryBackend(Backend):
 
             # cancel activity
             if isinstance(decision, CancelActivity):
-                self._cancel_activity(decision.id)
                 activity = self._activity_by_id(decision.id)
-                managed_process.history.append(ActivityEvent(activity['exec'], ActivityCanceled()))
+                self._cancel_activity(decision.id)
+                managed_process.history.append(ActivityEvent(activity[0], ActivityCanceled()))
 
             # complete process
             if isinstance(decision, CompleteProcess) or isinstance(decision, CancelProcess):
-                del self.running_processes[managed_process.id]
-                self._cancel_decision(managed_process)
-                if managed_process.parent:
-                    parent = self._managed_process(managed_process.parent)
-                    if decision.type == 'complete_process':
-                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result), workflow=managed_process.workflow, tags=managed_process.tags))
-                    elif decision_type == 'cancel_process':
-                        parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCancelled(details=decision.details, reason=decision.reason), workflow=managed_process.workflow, tags=managed_process.tags))
-                    self._schedule_decision(parent)
+                if managed_process.id in self.running_processes:
+                    del self.running_processes[managed_process.id]
+                    self._cancel_decision(managed_process)
+                    if managed_process.parent:
+                        parent = self._managed_process(managed_process.parent)
+                        if decision.type == 'complete_process':
+                            parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result), workflow=managed_process.workflow, tags=managed_process.tags))
+                        elif decision_type == 'cancel_process':
+                            parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCancelled(details=decision.details, reason=decision.reason), workflow=managed_process.workflow, tags=managed_process.tags))
+                        self._schedule_decision(parent)
 
             # start child process
             if isinstance(decision, StartChildProcess):
@@ -183,6 +189,7 @@ class MemoryBackend(Backend):
             raise UnknownActivityException()
 
         del self.running_activities[task.context['run_id']]
+        
         (execution, managed_process, expiration, heartbeat_expiration) = activity
 
         # append the activity event
@@ -211,7 +218,6 @@ class MemoryBackend(Backend):
             self._schedule_decision(expired[1])
 
             expired[1].history.append(ActivityEvent(expired[0], ActivityTimedOut()))
-
         
     def _time_out_decisions(self):
         # decisions that are past expired execution date. they're in running_decisions
@@ -233,7 +239,7 @@ class MemoryBackend(Backend):
         expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['execution_timeout'])
         heartbeat_expiration = datetime.now() + timedelta(seconds=self.activities[activity_execution.activity]['heartbeat_timeout'])
         self.running_activities[run_id] = (activity_execution, process, expiration, heartbeat_expiration)
-        
+            
         process.history.append(ActivityStartedEvent(activity_execution))
 
         return ActivityTask(activity_execution, process_id=process.id, context={'run_id': run_id})
