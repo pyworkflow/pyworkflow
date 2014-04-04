@@ -49,14 +49,19 @@ class ActivityWorker(object):
             if logger:
                 logger.info("Worker %s: Starting %s" % (self.name, task))
 
-            activity = self.manager.activity_for_task(task, monitor=self.monitor_for_task(task))
-            result = self.execute_activity(activity)
+            try:
+                activity = self.manager.activity_for_task(task, monitor=self.monitor_for_task(task))
+                result = self.execute_activity(activity)
 
+                if result:
+                    self.manager.complete_task(task, result)
+
+            except Exception, e:
+                logger.exception("Worker %s: Error in activity task %s: %s" % (self.name, task, str(e)))
+                return True # we consumed a task
+            
             if logger:
-                self.log_result(task, result, logger)
-        
-            if result:
-                self.manager.complete_task(task, result)
+                self.log_result(task, result, logger)            
 
             return True
 
