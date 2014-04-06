@@ -191,6 +191,9 @@ class WorkflowBackendTestCase(unittest.TestCase):
         event2_adjusted = deepcopy(event2)
         event2_adjusted.datetime = event1.datetime
 
+        if not event2_adjusted == event1:
+            print event1
+            print event2_adjusted
         assert event2_adjusted == event1
         return True
 

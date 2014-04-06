@@ -27,13 +27,14 @@ class CancelProcess(Decision):
         return 'CancelProcess(%s)' % (self.details)
 
 class StartChildProcess(Decision):
-    def __init__(self, process):
+    def __init__(self, process, child_policy='ABANDON'):
         super(StartChildProcess, self).__init__('start_child_process')
 
         self.process = process
+        self.child_policy = child_policy
 
     def __repr__(self):
-        return 'StartChildProcess(%s)' % (self.process)
+        return 'StartChildProcess(%s, %s)' % (self.process, self.child_policy)
 
 class ScheduleActivity(Decision):
     def __init__(self, activity, id=None, category=None, input=None):

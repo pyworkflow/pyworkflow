@@ -2,6 +2,7 @@ from uuid import uuid4
 from events import DecisionEvent, ActivityEvent
 from activity import ActivityExecution
 from decision import ScheduleActivity
+from itertools import ifilter
 
 class Process(object):
     def __init__(self, workflow=None, id=None, input=None, tags=None, history=None, parent=None):
@@ -44,25 +45,20 @@ class Process(object):
         return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent)
 
     def unseen_events(self):
-        def before_decision(iterable):
-            event = next(iterable, None)
-            return [] if not event or hasattr(event, 'decision') else [event] + before_decision(iterable)
-
-        return before_decision(reversed(self.history))
+        r_history = list(reversed(self.history))
+        first_decision = next(ifilter(lambda ev: ev.type == 'decision', r_history), None)
+        last_seen_idx = r_history.index(first_decision) if first_decision else len(r_history)
+        return r_history[:last_seen_idx]
 
     def unfinished_activities(self):
-        def unfinished(iterable):
-            event = next(iterable, None)
-            if event is None:
-                return []
-            elif event.type == 'decision' and hasattr(event.decision, 'activity'):
-                return unfinished(iterable) + [ActivityExecution(event.decision.activity, event.decision.id, event.decision.input)]
-            elif event.type == 'activity' and hasattr(event, 'result'):
-                return filter(lambda x: x != event.activity_execution, unfinished(iterable))
-            else:
-                return unfinished(iterable)
+        execution_for_decision = lambda decision: ActivityExecution(decision.activity, decision.id, decision.input)
+        is_completed_activity = lambda ev: ev.type == 'activity' and hasattr(ev, 'result')
+        is_scheduled_activity = lambda ev: ev.type == 'decision' and hasattr(ev.decision, 'activity')
 
-        return unfinished(reversed(self.history))
+        r_history = reversed(self.history)
+        finished = [ev.activity_execution for ev in r_history if is_completed_activity(ev)]
+        scheduled = [execution_for_decision(ev.decision) for ev in r_history if is_scheduled_activity(ev)]
+        return filter(lambda ae: ae not in finished, scheduled)
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
@@ -93,8 +89,9 @@ class ProcessCompleted(ProcessResult):
 
 class ProcessCanceled(InterruptedProcessResult):
     ''' The cancelation of a process '''
-    def __init__(self, details=None):
+    def __init__(self, reason=None, details=None):
         super(ProcessCanceled, self).__init__('canceled')
+        self.reason = reason
         self.details = details
 
     def __repr__(self):
