@@ -87,7 +87,7 @@ class MemoryBackend(Backend):
 
     def start_process(self, process):
         # register the process
-        process = process.copy_with_id(str(uuid4()))
+        process = process.copy_with_id(str(uuid4()), history=[ProcessStartedEvent()])
         self.running_processes[process.id] = process
         # schedule a decision
         self._schedule_decision(process)

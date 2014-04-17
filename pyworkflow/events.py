@@ -49,6 +49,13 @@ class TimerEvent(Event):
     def __repr__(self):
         return 'TimerEvent(%s)' % (repr(self.timer))
 
+class ProcessStartedEvent(Event):
+    def __init__(self, **kwargs):
+        super(ProcessStartedEvent, self).__init__('process_started', **kwargs)
+        
+    def __repr__(self):
+        return 'ProcessStartedEvent()'
+
 class ChildProcessEvent(Event):
     def __init__(self, process_id, result, **kwargs):
         super(ChildProcessEvent, self).__init__('child_process', **kwargs)

@@ -1,5 +1,6 @@
 import itertools
 from ..task import DecisionTask, ActivityTask
+from ..events import ProcessStartedEvent
 
 class Manager(object):
     """

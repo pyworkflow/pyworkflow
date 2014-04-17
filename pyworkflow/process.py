@@ -1,5 +1,5 @@
 from uuid import uuid4
-from events import DecisionEvent, ActivityEvent
+from events import DecisionEvent, ActivityEvent, ProcessStartedEvent
 from activity import ActivityExecution
 from decision import ScheduleActivity
 from itertools import ifilter
@@ -14,7 +14,7 @@ class Process(object):
         self._id = id
         self._parent = parent
         self._input = input
-        self._history = history or []
+        self._history = history or [ProcessStartedEvent()]
         self._tags = tags or []
         
     @property
@@ -41,8 +41,8 @@ class Process(object):
     def tags(self):
         return self._tags
 
-    def copy_with_id(self, id):
-        return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent)
+    def copy_with_id(self, id, **kwargs):
+        return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent, **kwargs)
 
     def unseen_events(self):
         r_history = list(reversed(self.history))
@@ -55,13 +55,16 @@ class Process(object):
         is_completed_activity = lambda ev: ev.type == 'activity' and hasattr(ev, 'result')
         is_scheduled_activity = lambda ev: ev.type == 'decision' and hasattr(ev.decision, 'activity')
 
-        r_history = reversed(self.history)
+        r_history = list(reversed(self.history)) # consume iterator once, store in list
         finished = [ev.activity_execution for ev in r_history if is_completed_activity(ev)]
         scheduled = [execution_for_decision(ev.decision) for ev in r_history if is_scheduled_activity(ev)]
         return filter(lambda ae: ae not in finished, scheduled)
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__
+
+    def __str__(self):
+        return repr(self)
 
     def __repr__(self):
         return 'Process(%s, %s, %s, %s, %s)' % (self.workflow, self.id, self.input, self.tags, self.parent)
