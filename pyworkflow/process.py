@@ -61,6 +61,10 @@ class Process(object):
         return filter(lambda ae: ae not in finished, scheduled)
 
     def __eq__(self, other):
+        if not self.__dict__ == other.__dict__:
+            print "this shit ain't the same yo"
+            print self.__dict__
+            print other.__dict__
         return self.__dict__ == other.__dict__
 
     def __str__(self):

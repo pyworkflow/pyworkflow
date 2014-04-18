@@ -227,30 +227,6 @@ class WorkflowBasicTestCase(unittest.TestCase):
 
 class WorkflowBackendTestCase(unittest.TestCase):
 
-    def events_approximately_equal(self, event1, event2):
-        assert type(event1) == type(event2)
-        event2_adjusted = deepcopy(event2)
-        event2_adjusted.datetime = event1.datetime
-
-        if not event2_adjusted == event1:
-            print event1
-            print event2_adjusted
-        assert event2_adjusted == event1
-        return True
-
-    def processes_approximately_equal(self, process1, process2):
-        ''' Verify the two processes are equal (except for timestamp difference) '''
-        assert process1.id == process2.id
-        assert process1.workflow == process2.workflow
-        assert process1.input == process2.input
-        assert len(process1.history) == len(process2.history)
-
-        for idx,event1 in enumerate(process1.history):
-            event2 = process2.history[idx]
-            assert self.events_approximately_equal(event1, event2)
-            
-        return True
-
     def construct_backend(self):
         raise NotImplementedError()
 
@@ -323,12 +299,12 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = list(backend.processes(tag="foo"))
         assert len(processes) == 1
         pid1 = processes[0].id
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"]))
+        assert processes == [Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])]
         
         processes = list(backend.processes(tag="process-5678"))
         assert len(processes) == 1
         pid2 = processes[0].id
-        assert self.processes_approximately_equal(processes[0], Process(id=pid2, workflow='test', input=3, tags=["process-5678"]))
+        assert processes == [Process(id=pid2, workflow='test', input=3, tags=["process-5678"])]
         
 
         # Verify we can read the process back in a list
@@ -336,22 +312,22 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = sorted(list(backend.processes()), key=lambda p: p.input)
         assert len(processes) == 2        
 
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"]))
-        assert self.processes_approximately_equal(processes[1], Process(id=pid2, workflow='test', input=3, tags=["process-5678"]))
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
+        assert processes[1] == Process(id=pid2, workflow='test', input=3, tags=["process-5678"])
 
         processes = sorted(list(backend.processes(workflow="test")), key=lambda p: p.input)
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"]))
-        assert self.processes_approximately_equal(processes[1], Process(id=pid2, workflow='test', input=3, tags=["process-5678"]))
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
+        assert processes[1] == Process(id=pid2, workflow='test', input=3, tags=["process-5678"])
 
         # Terminate the second process
         processes = list(backend.processes(tag="process-5678"))
         backend.cancel_process(processes[0])
         processes = list(backend.processes())
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"]))
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
 
         # Verify we get the first decision task back
         task = backend.poll_decision_task()
-        assert self.processes_approximately_equal(task.process, Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"]))
+        assert task.process == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
         
         # Execute the decision task (schedule activity)
         activity_id = '5678'
@@ -365,8 +341,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled)
         ])
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], expected)
-        assert self.processes_approximately_equal(backend.process_by_id(pid1), expected)
+        assert processes[0] == expected
+        assert backend.process_by_id(pid1) == expected
 
 
         # Send a signal
@@ -375,11 +351,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify the signal is in the history
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123}))
-            ]))
+            ])
 
         # Verify we get the activity task back now
         task = backend.poll_activity_task()
@@ -393,13 +369,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed)
-            ]))
+            ])
 
         # Re-schedule the task
         task = backend.poll_decision_task()
@@ -414,7 +390,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
@@ -423,7 +399,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted)
-            ]))
+            ])
 
         # Re-schedule the task
         task = backend.poll_decision_task()
@@ -438,7 +414,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify we can read the process back
         processes = list(backend.processes())
         assert len(processes) == 1
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
@@ -450,13 +426,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
-            ]))
+            ])
         
         # Verify we get a decision task
         task = backend.poll_decision_task()      
         assert task.process.workflow == 'test'
         # Verify the history is there in the task as well
-        assert self.processes_approximately_equal(task.process, Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert task.process == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
@@ -468,7 +444,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
-            ]))
+            ])
 
         # Start child process
         child_process = Process(workflow='test', input=[3,4], tags=[u'test-child'])
@@ -476,7 +452,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify the start child process is in the history
         processes = list(backend.processes(tag='foo'))
-        assert self.processes_approximately_equal(processes[0], Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
+        assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
@@ -489,7 +465,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed),
             DecisionEvent(decision=StartChildProcess(child_process))
-            ]))
+            ])
 
         parent_id = task.process.id
 
@@ -507,7 +483,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Complete the parent process
         task = backend.poll_decision_task()
-        assert self.events_approximately_equal(task.process.history[-1], ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50), workflow='test', tags=[u'test-child']))
+        assert task.process.history[-1] == ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50), workflow='test', tags=[u'test-child'])
         backend.complete_decision_task(task, CompleteProcess())
         
         # Verify there are now no more processes
@@ -528,7 +504,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         assert workflow == FooWorkflow()
-        assert self.processes_approximately_equal(task.process, Process(id=task.process.id, workflow='Foo', input=[2,3]))
+        assert task.process == Process(id=task.process.id, workflow='Foo', input=[2,3])
         
 
         decision = workflow.decide(task.process)
@@ -555,13 +531,13 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         assert task.process.workflow == 'Foo'
-        expected = Process(id=pid, workflow='Foo', input=[2,3], tags=["process-1234", "foo"], history=[
+        expected = Process(id=pid, workflow='Foo', input=[2,3], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('Multiplication', id=activity_id, input=[2,3]), datetime=date_scheduled),
             ActivityStartedEvent(ActivityExecution('Multiplication', activity_id, [2,3])),
             ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed)
         ])
-        assert self.processes_approximately_equal(task.process, expected)
+        assert task.process == expected
 
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)
@@ -582,12 +558,10 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager.start_process(process)
 
         read_back = list(manager.processes(workflow=OrderWorkflow))
-        assert len(read_back) == 1
-        assert self.processes_approximately_equal(read_back[0], process.copy_with_id(read_back[0].id))
+        assert read_back == [process.copy_with_id(read_back[0].id)]
         
         read_back = list(manager.processes(tag="order-1"))
-        assert len(read_back) == 1
-        assert self.processes_approximately_equal(read_back[0], process.copy_with_id(read_back[0].id))
+        assert read_back == [process.copy_with_id(read_back[0].id)]
         
         # Decide: -> payment processing
         task = manager.next_decision()
@@ -759,11 +733,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Activity: abort
         task = manager.next_decision()
-        assert self.processes_approximately_equal(task.process, Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
+        assert task.process == Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
             ProcessStartedEvent(),
             DecisionEvent(decision=Timer(timer_delay, {'foo': 'bar'}), datetime=date_scheduled),
             TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'}))
-            ]))
+            ])
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)

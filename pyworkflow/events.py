@@ -1,4 +1,5 @@
 from datetime import datetime
+from copy import deepcopy
 
 class Event(object):
     def __init__(self, event_type, **kwargs):
@@ -6,6 +7,8 @@ class Event(object):
         self.datetime = kwargs.get('datetime', datetime.now())
         
     def __eq__(self, other):
+        other = deepcopy(other)
+        other.datetime = self.datetime
         return self.__dict__ == other.__dict__
 
 class DecisionEvent(Event):
