@@ -27,7 +27,10 @@ def match_exact_or_filter(value, match_val):
 
     if hasattr(match_val, '__call__'):
         # is function, treat as filter
-        return match_val(value)
+        try:
+            return match_val(value)
+        except:
+            return False
     else:
         # no function, do direct comparison
         return value == match_val

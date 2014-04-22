@@ -59,7 +59,11 @@ class MemoryBackend(Backend):
         existing = filter(lambda a: a[0] == process, self.scheduled_decisions)
         matching = filter(lambda a: not a[1] or a[1] <= (start or datetime.now()), existing)
         if timer or not len(matching):
-            expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
+            if timer:
+                expiration = None
+            else:
+                expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
+
             self.scheduled_decisions.append((process, start, expiration, timer))
 
     def _cancel_decision(self, process):
@@ -255,7 +259,7 @@ class MemoryBackend(Backend):
             if start and start > datetime.now():
                 continue
                 #self.scheduled_decisions.append((process, start, expiration, timer))
-            elif expiration >= datetime.now():
+            elif not expiration or expiration >= datetime.now():
                 if start:
                     process.history.append(TimerEvent(timer))
 
