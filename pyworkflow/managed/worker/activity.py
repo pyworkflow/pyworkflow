@@ -32,23 +32,35 @@ class ActivityWorker(object):
         except Exception, e:
             return ActivityFailed(str(e), traceback.format_exc())
 
+    def _log_msg(self, head, task, result=None, include_task=False):
+        activity = task.activity_execution.activity
+        task_id = task.activity_execution.id
+
+        msg = '%s %s activity (%s)' % (head, activity, task_id)
+        
+        if include_task:
+            msg += '\nTask: %s' % task
+        if result:
+            msg += '\nResult: %s' % result
+
+        return msg
+
     def log_result(self, task, result, logger):
         if isinstance(result, ActivityCompleted):
-            logger.info("Worker %s: Completed %s with result %s" % (self.name, task, result))
+            logger.info(self._log_msg('Completed', task, result))
         elif isinstance(result, ActivityCanceled):
-            logger.info("Worker %s: Aborted %s with result %s" % (self.name, task, result))
+            logger.info(self._log_msg('Aborted', task, result))
         elif isinstance(result, ActivityFailed):
-            logger.warning("Worker %s: Failed %s with result %s" % (self.name, task, result))
+            logger.warning(self._log_msg('Failed', task, result, include_task=True))
         elif result is None:
-            logger.info("Worker %s: Handed off %s" % (self.name, task))
+            logger.info(self._log_msg('Handed off', task, result))
         
     def step(self, logger=None):
         # Rely on the backend poll to be blocking
         task = self.manager.next_activity(identity=self.name)
         if task:
             if logger:
-                logger.info("Worker %s: Starting %s" % (self.name, task))
-
+                logger.info(self._log_msg('Starting', task, None, include_task=True))
             try:
                 activity = self.manager.activity_for_task(task, monitor=self.monitor_for_task(task))
                 result = self.execute_activity(activity)
@@ -57,7 +69,7 @@ class ActivityWorker(object):
                     self.manager.complete_task(task, result)
 
             except Exception, e:
-                logger.exception("Worker %s: Error in activity task %s: %s" % (self.name, task, str(e)))
+                logger.info(self._log_msg('Error in', task, str(e), include_task=True))
                 return True # we consumed a task
             
             if logger:

@@ -28,23 +28,35 @@ class DecisionWorker(object):
         # Make sure we return a list
         return map(convert, decisions if hasattr(decisions, '__iter__') else [decisions])
 
+    def _log_msg(self, head, task, result=None, include_task=False):
+        workflow_name = task.process.workflow
+        process_id = task.process.id
+
+        msg = '%s %s decision (%s)' % (head, workflow_name, process_id)
+
+        if include_task:
+            msg += '\nTask: %s' % task
+        if result:
+            msg += '\nResult: %s' % result
+
+        return msg
+
     def step(self, logger=None):
         task = self.manager.next_decision(identity=self.name)
         if task:
             if logger:
-                logger.info("Worker %s: Starting %s" % (self.name, task))
+                logger.info(self._log_msg("Starting", task, None, include_task=True))
 
             workflow = self.manager.workflow_for_task(task)
             try:
                 decisions = self.decide(task, workflow)
+                self.manager.complete_task(task, decisions)
             except Exception, e:
-                logger.exception("Worker %s: Error in decision task %s: %s" % (self.name, task, str(e)))
+                logger.exception(self._log_msg("Error in", task, str(e), include_task=True))
                 return True # we consumed a task
             
             if logger:
-                logger.info("Worker %s: Completed %s with result %s" % (self.name, task, decisions))
-
-            self.manager.complete_task(task, decisions)
+                logger.info(self._log_msg("Completed", task, decisions))
 
             return True # we consumed a task
 
