@@ -1,10 +1,12 @@
 import logging
 import unittest
 import mock
+
+from freezegun import freeze_time
 from copy import deepcopy
 from time import sleep
 
-from datetime import datetime
+from datetime import datetime, timedelta
 from ..exceptions import UnknownActivityException
 from ..process import Process, ProcessCompleted
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
@@ -22,6 +24,26 @@ logging.getLogger('workflow').setLevel('DEBUG')
 pending_shipments = []
 
 timer_delay = 1
+
+class DelayedExecution:
+    def __init__(self, delay, use_sleep):
+        self.delay = delay if hasattr(delay, 'seconds') else timedelta(seconds=delay)
+        self.use_sleep = use_sleep
+        self.freezer = None
+
+    def __enter__(self):
+        if self.use_sleep:
+            sleep(self.delay.total_seconds())
+        else:
+            self.freezer = freeze_time(datetime.now() + self.delay)
+            self.freezer.start()
+
+    def __exit__(self, *args):
+        if self.freezer:
+            self.freezer.stop()
+
+def delay(delay, use_sleep=False):
+    return DelayedExecution(delay, use_sleep)
 
 class MultiplicationActivity(Activity):
     def execute(self):
@@ -152,27 +174,41 @@ class TimeoutActivity(Activity):
     heartbeat_timeout = 1
 
     def execute(self):
-        if self.input[0]:
-            sleep(self.input[0])
+        duration = self.input['duration']
+        heartbeat = self.input.get('heartbeat', False)
+        use_sleep = self.input.get('sleep', False)
+
+        # input[0] for regular sleep
+        # input[1] for sleep with 10 heartbeats
+        if heartbeat:
+            for i in range(0, 10):
+                if not use_sleep:
+                    with delay((float(duration)/10.0)*i):
+                        self.heartbeat()
+                else:
+                    sleep(float(duration)/10.0)
+                    self.heartbeat()
         else:
-            for _ in range(0, 10):
-                sleep(float(self.input[1])/10.0)
-                self.heartbeat()
+            if use_sleep:
+                sleep(duration)
+            
         return True
 
 class TimeoutWorkflow(Workflow):
     activities = [TimeoutActivity]
 
     def decide(self, process):
+        use_sleep = process.input.get('sleep', False)
+
         if len(process.history) == 1:
             # let it time out on schedule
-            return ScheduleActivity(TimeoutActivity, input=[0,0], id=1)
+            return ScheduleActivity(TimeoutActivity, input={'duration':0,'sleep':use_sleep}, id=1)
         elif len(process.history) < 4:
             # let it time out on heartbeat
-            return ScheduleActivity(TimeoutActivity, input=[2,0], id=2)
+            return ScheduleActivity(TimeoutActivity, input={'duration':2,'sleep':use_sleep}, id=2)
         elif len(process.history) < 7:
             # let it time out on execution
-            return ScheduleActivity(TimeoutActivity, input=[0,5], id=3)
+            return ScheduleActivity(TimeoutActivity, input={'duration':2, 'heartbeat':True,'sleep':use_sleep}, id=3)
         else:
             return CompleteProcess()
 
@@ -227,6 +263,8 @@ class WorkflowBasicTestCase(unittest.TestCase):
 
 class WorkflowBackendTestCase(unittest.TestCase):
 
+    use_sleep = False
+
     def construct_backend(self):
         raise NotImplementedError()
 
@@ -235,52 +273,55 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager = Manager(backend, workflows=[TimeoutWorkflow])
 
         # Start a new TimeoutWorkflow process
-        process = Process(workflow=TimeoutWorkflow)
+        process = Process(workflow=TimeoutWorkflow, input={'sleep': self.use_sleep})
         manager.start_process(process)
 
         # Decide initial activity
         task = manager.next_decision()
+        assert task
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input=[0,0], id=1)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':0,'sleep':self.use_sleep}, id=1)
         manager.complete_task(task, decision)
 
         # Let the schedule time-out hit
-        sleep(1)
+        with delay(1, self.use_sleep):
+            # The task should be passed back to the decider
+            task = manager.next_decision()
+            assert task
 
-        # The task should be passed back to the decider
-        task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input=[2,0], id=2)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'sleep':self.use_sleep}, id=2)
         manager.complete_task(task, decision)
 
         # This time, execute the activity and time out before heartbeat
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
-        result = activity.execute()
-        try:
-            manager.complete_task(task, ActivityCompleted(result=result))
-            assert False, "should have timed out and not allowed completion"
-        except UnknownActivityException, e:
-            pass
+        with delay(1, self.use_sleep): # heartbeat timeout == 1
+            try:
+                manager.complete_task(task, ActivityCompleted(result=True))
+                assert False, "should have timed out and not allowed completion"
+            except UnknownActivityException, e:
+                pass
 
         # The task should be passed back to the decider
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input=[0,5], id=3)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'heartbeat':True,'sleep':self.use_sleep}, id=3)
         manager.complete_task(task, decision)
         
         # This time, execute the activity and time out on execution
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
         result = activity.execute()
-        try:
-            manager.complete_task(task, ActivityCompleted(result=result))
-            assert False, "should have timed out and not allowed completion"
-        except UnknownActivityException, e:
-            pass
+        with delay(2, self.use_sleep): # execution timeout == 2
+            try:
+                manager.complete_task(task, ActivityCompleted(result=result))
+                assert False, "should have timed out and not allowed completion"
+            except UnknownActivityException, e:
+                pass
 
     def subtest_basic(self):
         ''' Tests the basic backend functionality (no Workflow / Activity objects involved) '''
@@ -479,7 +520,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Complete the child process
         backend.complete_decision_task(task, CompleteProcess(result=50))
 
-        sleep(.5)
+        if self.use_sleep:
+            sleep(.5)
 
         # Complete the parent process
         task = backend.poll_decision_task()
@@ -729,15 +771,15 @@ class WorkflowBackendTestCase(unittest.TestCase):
         self.assertEquals(decision, Timer(timer_delay, {'foo': 'bar'}))
 
         # no use checking for absence of tasks here, some backends are long-polling
-        sleep(timer_delay)
+        with delay(timer_delay, self.use_sleep):
+            # Activity: abort
+            task = manager.next_decision()
+            assert task.process == Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
+                ProcessStartedEvent(),
+                DecisionEvent(decision=Timer(timer_delay, {'foo': 'bar'}), datetime=date_scheduled),
+                TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'}))
+                ])
 
-        # Activity: abort
-        task = manager.next_decision()
-        assert task.process == Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
-            ProcessStartedEvent(),
-            DecisionEvent(decision=Timer(timer_delay, {'foo': 'bar'}), datetime=date_scheduled),
-            TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'}))
-            ])
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)
@@ -773,10 +815,10 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert len(list(manager.processes())) == 1
 
         # We expect this to take no more than 4 seconds
-        for _ in range(0,4):
+        for _ in range(0,40):
             if len(list(manager.processes())) == 0:
                 break
-            sleep(1)
+            sleep(.1)
 
         decider.join(1)
         worker.join(1)

@@ -128,8 +128,8 @@ class MemoryBackend(Backend):
         activity = self.running_activities.get(task.context['run_id'])
         
         # replace with new heartbeat timeout
-        activity[3] = datetime.now() + timedelta(seconds=self.activities[activity[0].activity]['heartbeat_timeout'])
-        self.running_activities[task.context['run_id']] = activity
+        new_timeout = datetime.now() + timedelta(seconds=self.activities[activity[0].activity]['heartbeat_timeout'])
+        self.running_activities[task.context['run_id']] = (activity[0],activity[1],activity[2],new_timeout)
             
 
     def complete_decision_task(self, task, decisions):

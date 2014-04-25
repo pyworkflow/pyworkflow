@@ -1,1 +1,2 @@
 nose==1.2.1
+freezegun==0.1.16
