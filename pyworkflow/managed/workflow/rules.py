@@ -61,12 +61,12 @@ def completed_activity(activity=None, input=None):
         return m
     return rule(match)
 
-def interrupted_activity(activity=None):
+def interrupted_activity(activity=None, result=None):
     def match(ev):
         # match event type first
         m = ev.type == 'activity' and ev.result.type != 'completed'
-        # match by activity if given
         m = m and match_exact_or_filter(ev.activity_execution.activity, activity)
+        m = m and match_exact_or_filter(ev.result, result)
         return m
     return rule(match)
 
@@ -86,12 +86,13 @@ def timer(data=None):
         return m
     return rule(match)
 
-def child_process_completed(workflow=None, tags=None, has_tag=None):
+def child_process_completed(workflow=None, tags=None, has_tag=None, result=None):
     def match(ev):
         # match event type
         m = ev.type == 'child_process'
         m = m and match_exact_or_filter(ev.workflow, workflow)
         m = m and match_exact_or_filter(ev.tags, tags)
+        m = m and match_exact_or_filter(ev.result, result)
         m = m and (not has_tag or has_tag in ev.tags)
         return m
     return rule(match)
