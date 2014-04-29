@@ -107,6 +107,19 @@ class MemoryBackend(Backend):
         # schedule a decision (if needed)
         self._schedule_decision(managed_process)
 
+    def _cancel_process_internal(self, managed_process):
+
+        # remove scheduled decision
+        self._cancel_decision(managed_process)
+
+        # remove process
+        del self.running_processes[managed_process.id]
+
+        # cancel child processes
+        children = [p for p in self.running_processes.values() if p.parent == managed_process.id]
+        for c in children:
+            self.cancel_process(c.id)
+
     def cancel_process(self, process_or_id, details=None, reason=None):
         # find the process as we know it
         pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
@@ -115,11 +128,8 @@ class MemoryBackend(Backend):
         # append the cancelation event
         managed_process.history.append(DecisionEvent(CancelProcess(details=details, reason=reason)))
 
-        # remove scheduled decision
-        self._cancel_decision(managed_process)
+        self._cancel_process_internal(managed_process)
 
-        # remove process
-        del self.running_processes[managed_process.id]
 
     def heartbeat_activity_task(self, task):
         self._time_out_activities()
@@ -163,8 +173,9 @@ class MemoryBackend(Backend):
             # complete process
             if isinstance(decision, CompleteProcess) or isinstance(decision, CancelProcess):
                 if managed_process.id in self.running_processes:
-                    del self.running_processes[managed_process.id]
-                    self._cancel_decision(managed_process)
+                    #del self.running_processes[managed_process.id]
+                    #self._cancel_decision(managed_process)
+                    self._cancel_process_internal(managed_process)
                     if managed_process.parent:
                         parent = self._managed_process(managed_process.parent)
                         if decision.type == 'complete_process':
