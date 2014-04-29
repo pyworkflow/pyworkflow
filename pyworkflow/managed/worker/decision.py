@@ -48,11 +48,12 @@ class DecisionWorker(object):
                 logger.info(self._log_msg("Starting", task, None, include_task=True))
 
             workflow = self.manager.workflow_for_task(task)
+            decisions = None
             try:
                 decisions = self.decide(task, workflow)
                 self.manager.complete_task(task, decisions)
             except Exception, e:
-                logger.exception(self._log_msg("Error in", task, str(e), include_task=True))
+                logger.exception(self._log_msg("Error in", task, 'Exception: %s\nDecisions: %s' % (str(e), str(decisions)), include_task=True))
                 return True # we consumed a task
             
             if logger:
