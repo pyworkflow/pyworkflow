@@ -48,7 +48,7 @@ class Process(object):
         r_history = list(reversed(self.history))
         first_decision = next(ifilter(lambda ev: ev.type == 'decision', r_history), None)
         last_seen_idx = r_history.index(first_decision) if first_decision else len(r_history)
-        return r_history[:last_seen_idx]
+        return list(reversed(r_history[:last_seen_idx]))
 
     def unfinished_activities(self):
         execution_for_decision = lambda decision: ActivityExecution(decision.activity, decision.id, decision.input)
@@ -59,6 +59,20 @@ class Process(object):
         finished = [ev.activity_execution for ev in r_history if is_completed_activity(ev)]
         scheduled = [execution_for_decision(ev.decision) for ev in r_history if is_scheduled_activity(ev)]
         return filter(lambda ae: ae not in finished, scheduled)
+
+    def untriggered_timers(self, disregard_unseen=False):
+        history = self.history
+        if disregard_unseen:
+            unseen = self.unseen_events()
+            try:
+                history = history[:history.index(unseen[0])]
+            except ValueError:
+                pass
+
+        is_timer_decision = lambda ev: ev.type == 'decision' and ev.decision.type == 'timer'
+        timers = [ev.decision for ev in history if is_timer_decision(ev)]
+        finished_timers = [ev.timer for ev in history if ev.type == 'timer']
+        return list(set(timers) - set(finished_timers))
 
     def __eq__(self, other):
         return self.__dict__ == other.__dict__

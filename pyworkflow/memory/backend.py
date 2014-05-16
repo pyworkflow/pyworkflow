@@ -240,6 +240,12 @@ class MemoryBackend(Backend):
             del self.running_decisions[i]
             self._schedule_decision(expired[0])
 
+        # sometimes scheduled decisions have been there for too long as well
+        for (expired) in filter(lambda d: d[2] and d[2] < datetime.now(), self.scheduled_decisions):
+            self.scheduled_decisions.remove(expired)
+            self._schedule_decision(expired[0])
+
+
     def poll_activity_task(self, category="default", identity=None):
         # find queued activity tasks (that haven't timed out)
         try:
