@@ -45,8 +45,8 @@ class Process(object):
         return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent, **kwargs)
 
     def unseen_events(self):
-        r_history = list(reversed(self.history))
-        first_decision = next(ifilter(lambda ev: ev.type == 'decision', r_history), None)
+        r_history = list(reversed(self.history))[1:] # last event is the start of this decision, ignore
+        first_decision = next(ifilter(lambda ev: ev.type == 'decision_started', r_history), None)
         last_seen_idx = r_history.index(first_decision) if first_decision else len(r_history)
         return list(reversed(r_history[:last_seen_idx]))
 

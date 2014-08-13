@@ -245,7 +245,6 @@ class MemoryBackend(Backend):
             self.scheduled_decisions.remove(expired)
             self._schedule_decision(expired[0])
 
-
     def poll_activity_task(self, category="default", identity=None):
         # find queued activity tasks (that haven't timed out)
         try:
@@ -289,5 +288,7 @@ class MemoryBackend(Backend):
         expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['timeout'])
         self.running_decisions[run_id] = (process, expiration)
         
+        process.history.append(DecisionStartedEvent())
+
         return DecisionTask(process, context={'run_id': run_id})
         

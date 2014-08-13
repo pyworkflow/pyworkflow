@@ -11,7 +11,7 @@ from ..exceptions import UnknownActivityException
 from ..process import Process, ProcessCompleted
 from ..activity import ActivityExecution, ActivityCompleted, ActivityFailed, ActivityCanceled
 from ..decision import ScheduleActivity, CompleteProcess, CancelProcess, CancelActivity, StartChildProcess, Timer
-from ..events import ProcessStartedEvent, DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent, TimerEvent
+from ..events import ProcessStartedEvent, DecisionStartedEvent, DecisionEvent, ActivityEvent, ActivityStartedEvent, SignalEvent, ChildProcessEvent, TimerEvent
 from ..signal import Signal
 from ..task import ActivityTask
 
@@ -62,14 +62,14 @@ class FooWorkflow(Workflow):
     activities = [MultiplicationActivity]
 
     def decide(self, process):
-        if len(process.history) == 1: # started
+        if len(process.history) <= 2: # started
             return ScheduleActivity(MultiplicationActivity, input=process.input)
         else:
             return CompleteProcess()
 
 class TimerTestWorkflow(Workflow):
     def decide(self, process):
-        if len(process.history) == 1: # started
+        if len(process.history) <= 2: # started
             return Timer(timer_delay, {'foo': 'bar'})
         else:
             return CompleteProcess()
@@ -200,13 +200,13 @@ class TimeoutWorkflow(Workflow):
     def decide(self, process):
         use_sleep = process.input.get('sleep', False)
 
-        if len(process.history) == 1:
+        if len(process.history) == 2: # process start + decision start
             # let it time out on schedule
             return ScheduleActivity(TimeoutActivity, input={'duration':0,'sleep':use_sleep}, id=1)
-        elif len(process.history) < 4:
+        elif len(process.history) < 6: # process start + decision start + decision + activity start + timeout + decision start
             # let it time out on heartbeat
             return ScheduleActivity(TimeoutActivity, input={'duration':2,'sleep':use_sleep}, id=2)
-        elif len(process.history) < 7:
+        elif len(process.history) < 10: # process start + decision start + decision + activity start + timeout + decision start + decision + activity start + timeout + decision start
             # let it time out on execution
             return ScheduleActivity(TimeoutActivity, input={'duration':2, 'heartbeat':True,'sleep':use_sleep}, id=3)
         else:
@@ -224,6 +224,7 @@ class WorkflowBasicTestCase(unittest.TestCase):
         assert process.history[0].type == 'process_started'
 
         # take a decision
+        process.history.append(DecisionStartedEvent())
         decision = workflow.decide(process)
         assert isinstance(decision, ScheduleActivity)
         assert decision.input == [2,3]
@@ -242,6 +243,7 @@ class WorkflowBasicTestCase(unittest.TestCase):
         assert (datetime.now() - process.history[1].datetime).seconds == 0
 
         # take a decision
+        process.history.append(DecisionStartedEvent())
         decision = workflow.decide(process)
         assert isinstance(decision, CompleteProcess)
         process.history.append(DecisionEvent(decision))
@@ -249,13 +251,19 @@ class WorkflowBasicTestCase(unittest.TestCase):
     def test_process(self):
         process = Process(id='p1', workflow='test', input=2, tags=[], history=[
             SignalEvent(signal=Signal('signal1', {'test': 123})),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('act1', id='1', input=2)),
             SignalEvent(signal=Signal('signal2', {'test': 123})),
-            DecisionEvent(decision=StartChildProcess(Process(id='p2', workflow='testsub', input=1))),
+            DecisionStartedEvent()
         ])
 
-        unseen = process.unseen_events()
-        assert unseen == []
+        assert process.unseen_events() == [
+            DecisionEvent(decision=ScheduleActivity('act1', id='1', input=2)),
+            SignalEvent(signal=Signal('signal2', {'test': 123}))
+        ]
+
+        process.history.append(DecisionEvent(decision=StartChildProcess(Process(id='p2', workflow='testsub', input=1))))
+        assert process.unseen_events() == []
 
         unfinished = process.unfinished_activities()
         assert unfinished == [ActivityExecution('act1', '1', 2)]
@@ -368,7 +376,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Verify we get the first decision task back
         task = backend.poll_decision_task()
-        assert task.process == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
+        assert task.process.id == pid1
+        #assert task.process == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
         
         # Execute the decision task (schedule activity)
         activity_id = '5678'
@@ -379,6 +388,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = list(backend.processes())
         expected = Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled)
         ])
         assert len(processes) == 1
@@ -394,6 +404,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert len(processes) == 1
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123}))
             ])
@@ -412,6 +423,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert len(processes) == 1
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
@@ -433,10 +445,12 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert len(processes) == 1
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted)
@@ -457,13 +471,16 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert len(processes) == 1
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
@@ -475,16 +492,20 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify the history is there in the task as well
         assert task.process == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
-            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed)
+            ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed),
+            DecisionStartedEvent()
             ])
 
         # Start child process
@@ -495,16 +516,20 @@ class WorkflowBackendTestCase(unittest.TestCase):
         processes = list(backend.processes(tag='foo'))
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled),
             SignalEvent(signal=Signal('some_signal', {'test': 123})),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityFailed(reason='simulated error', details='unknown'), datetime=date_failed),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled2),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCanceled(details='test'), datetime=date_aborted),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('double', id=activity_id, input=2), datetime=date_scheduled3),
             ActivityStartedEvent(ActivityExecution('double', activity_id, 2)),
             ActivityEvent(ActivityExecution('double', activity_id, 2), result=ActivityCompleted(result=4), datetime=date_completed),
+            DecisionStartedEvent(),
             DecisionEvent(decision=StartChildProcess(child_process))
             ])
 
@@ -525,7 +550,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Complete the parent process
         task = backend.poll_decision_task()
-        assert task.process.history[-1] == ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50), workflow='test', tags=[u'test-child'])
+        assert task.process.history[-2] == ChildProcessEvent(process_id=child_id, result=ProcessCompleted(result=50), workflow='test', tags=[u'test-child'])
         backend.complete_decision_task(task, CompleteProcess())
         
         # Verify there are now no more processes
@@ -546,8 +571,8 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         assert workflow == FooWorkflow()
-        assert task.process == Process(id=task.process.id, workflow='Foo', input=[2,3])
-        
+        assert task.process.workflow == 'Foo'
+        assert task.process.input == [2,3]        
 
         decision = workflow.decide(task.process)
         manager.complete_task(task, decision)
@@ -575,9 +600,11 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert task.process.workflow == 'Foo'
         expected = Process(id=pid, workflow='Foo', input=[2,3], history=[
             ProcessStartedEvent(),
+            DecisionStartedEvent(),
             DecisionEvent(decision=ScheduleActivity('Multiplication', id=activity_id, input=[2,3]), datetime=date_scheduled),
             ActivityStartedEvent(ActivityExecution('Multiplication', activity_id, [2,3])),
-            ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed)
+            ActivityEvent(ActivityExecution('Multiplication', activity_id, [2,3]), result=ActivityCompleted(result=6), datetime=date_completed),
+            DecisionStartedEvent()
         ])
         assert task.process == expected
 
@@ -776,8 +803,10 @@ class WorkflowBackendTestCase(unittest.TestCase):
             task = manager.next_decision()
             assert task.process == Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
                 ProcessStartedEvent(),
+                DecisionStartedEvent(),
                 DecisionEvent(decision=Timer(timer_delay, {'foo': 'bar'}), datetime=date_scheduled),
-                TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'}))
+                TimerEvent(timer=Timer(timer_delay, {'foo': 'bar'})),
+                DecisionStartedEvent()
                 ])
 
         workflow = manager.workflow_for_task(task)

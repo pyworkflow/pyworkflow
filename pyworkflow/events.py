@@ -11,6 +11,13 @@ class Event(object):
         other.datetime = self.datetime
         return self.__dict__ == other.__dict__
 
+class DecisionStartedEvent(Event):
+    def __init__(self, **kwargs):
+        super(DecisionStartedEvent, self).__init__('decision_started', **kwargs)
+        
+    def __repr__(self):
+        return 'DecisionStartedEvent()'
+
 class DecisionEvent(Event):
     def __init__(self, decision, **kwargs):
         super(DecisionEvent, self).__init__('decision', **kwargs)
