@@ -62,6 +62,10 @@ class Process(object):
 
     def untriggered_timers(self, disregard_unseen=False):
         history = self.history
+        
+        is_timer_decision = lambda ev: ev.type == 'decision' and ev.decision.type == 'timer'
+        timers = [ev.decision for ev in history if is_timer_decision(ev)]
+
         if disregard_unseen:
             unseen = self.unseen_events()
             try:
@@ -69,8 +73,6 @@ class Process(object):
             except ValueError:
                 pass
 
-        is_timer_decision = lambda ev: ev.type == 'decision' and ev.decision.type == 'timer'
-        timers = [ev.decision for ev in history if is_timer_decision(ev)]
         finished_timers = [ev.timer for ev in history if ev.type == 'timer']
         return list(set(timers) - set(finished_timers))
 
