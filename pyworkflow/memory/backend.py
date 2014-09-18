@@ -65,6 +65,7 @@ class MemoryBackend(Backend):
                 expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
 
             self.scheduled_decisions.append((process, start, expiration, timer))
+            self.scheduled_decisions = sorted(self.scheduled_decisions, key=lambda d: d[1] or datetime.now())
 
     def _cancel_decision(self, process):
         to_cancel = filter(lambda a: a[0] == process, self.scheduled_decisions)
