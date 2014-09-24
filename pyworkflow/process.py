@@ -44,6 +44,12 @@ class Process(object):
     def copy_with_id(self, id, **kwargs):
         return Process(workflow=self.workflow, id=id, input=self.input, tags=self.tags, parent=self.parent, **kwargs)
 
+    def has_event(self, event):
+        return event in self.history
+
+    def has_decision(self, decision):
+        return self.has_event(DecisionEvent(decision))
+
     def unseen_events(self):
         r_history = list(reversed(self.history))[1:] # last event is the start of this decision, ignore
         first_decision = next(ifilter(lambda ev: ev.type == 'decision_started', r_history), None)
@@ -108,9 +114,8 @@ class ProcessCompleted(ProcessResult):
 
 class ProcessCanceled(InterruptedProcessResult):
     ''' The cancelation of a process '''
-    def __init__(self, reason=None, details=None):
+    def __init__(self, details=None):
         super(ProcessCanceled, self).__init__('canceled')
-        self.reason = reason
         self.details = details
 
     def __repr__(self):

@@ -121,13 +121,13 @@ class MemoryBackend(Backend):
         for c in children:
             self.cancel_process(c.id)
 
-    def cancel_process(self, process_or_id, details=None, reason=None):
+    def cancel_process(self, process_or_id, details=None):
         # find the process as we know it
         pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
         managed_process = self._managed_process(pid)
 
         # append the cancelation event
-        managed_process.history.append(DecisionEvent(CancelProcess(details=details, reason=reason)))
+        managed_process.history.append(DecisionEvent(CancelProcess(details=details)))
 
         self._cancel_process_internal(managed_process)
 
@@ -182,7 +182,7 @@ class MemoryBackend(Backend):
                         if decision.type == 'complete_process':
                             parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCompleted(result=decision.result), workflow=managed_process.workflow, tags=managed_process.tags))
                         elif decision.type == 'cancel_process':
-                            parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCanceled(details=decision.details, reason=decision.reason), workflow=managed_process.workflow, tags=managed_process.tags))
+                            parent.history.append(ChildProcessEvent(process_id=managed_process.id, result=ProcessCanceled(details=decision.details), workflow=managed_process.workflow, tags=managed_process.tags))
                         self._schedule_decision(parent)
 
             # start child process

@@ -54,8 +54,8 @@ class Manager(object):
     def signal_process(self, process, signal):
         self._backend.signal_process(process, signal.name, signal.data)
 
-    def cancel_process(self, process, details=None, reason=None):
-        self._backend.cancel_process(process, details=details, reason=reason)
+    def cancel_process(self, process, details=None):
+        self._backend.cancel_process(process, details=details)
 
     def heartbeat(self, task):
         self._backend.heartbeat_activity_task(task)

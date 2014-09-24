@@ -19,7 +19,7 @@ class Backend(object):
     def signal_process(self, process, signal, data=None):
         raise NotImplementedError()
 
-    def cancel_process(self, process, details=None, reason=None):
+    def cancel_process(self, process, details=None):
         raise NotImplementedError()
 
     def poll_activity_task(self, category="default", identity=None):

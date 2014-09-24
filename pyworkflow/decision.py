@@ -17,11 +17,10 @@ class CompleteProcess(Decision):
         return 'CompleteProcess(%s)' % (str(self.result))
 
 class CancelProcess(Decision):
-    def __init__(self, details=None, reason=None):
+    def __init__(self, details=None):
         super(CancelProcess, self).__init__('cancel_process')
 
         self.details = details
-        self.reason = reason
 
     def __repr__(self):
         return 'CancelProcess(%s)' % (self.details)
