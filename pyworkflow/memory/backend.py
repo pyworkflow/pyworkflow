@@ -28,8 +28,8 @@ class MemoryBackend(Backend):
         self.running_activities = {}
         self.running_decisions = {}
 
-        self.scheduled_decisions = deque([])
-        self.scheduled_activities = {'default': deque([])}
+        self.scheduled_decisions = {Defaults.DECISION_CATEGORY: deque([])}
+        self.scheduled_activities = {Defaults.ACTIVITY_CATEGORY: deque([])}
         
     def _managed_process(self, pid):
         return self.running_processes[pid]
@@ -61,7 +61,9 @@ class MemoryBackend(Backend):
             
 
     def _schedule_decision(self, process, start=None, timer=None):
-        existing = filter(lambda a: a[0] == process, self.scheduled_decisions)
+        queue = self.workflows[process.workflow]['category']
+
+        existing = filter(lambda a: a[0] == process, self.scheduled_decisions[queue])
         matching = filter(lambda a: not a[1] or a[1] <= (start or datetime.now()), existing)
         if timer or not len(matching):
             if timer:
@@ -69,19 +71,26 @@ class MemoryBackend(Backend):
             else:
                 expiration = datetime.now() + timedelta(seconds=self.workflows[process.workflow]['decision_timeout'])
 
-            self.scheduled_decisions.append((process, start, expiration, timer))
-            self.scheduled_decisions = sorted(self.scheduled_decisions, key=lambda d: d[1] or datetime.now())
+            self.scheduled_decisions[queue].append((process, start, expiration, timer))
+            self.scheduled_decisions[queue] = sorted(self.scheduled_decisions[queue], key=lambda d: d[1] or datetime.now())
 
     def _cancel_decision(self, process):
-        to_cancel = filter(lambda a: a[0] == process, self.scheduled_decisions)
-        for a in to_cancel:
-            self.scheduled_decisions.remove(a)        
+        for cat, queue in self.scheduled_decisions.items():
+            to_cancel = filter(lambda a: a[0] == process, queue)
+            for a in to_cancel:
+                queue.remove(a)
 
-    def register_workflow(self, name, timeout=Defaults.WORKFLOW_TIMEOUT, decision_timeout=Defaults.DECISION_TIMEOUT):
+    def register_workflow(self, name, category=Defaults.DECISION_CATEGORY,
+        timeout=Defaults.WORKFLOW_TIMEOUT, 
+        decision_timeout=Defaults.DECISION_TIMEOUT):
+
         self.workflows[name] = {
+            'category': category,
             'timeout': timeout,
             'decision_timeout': decision_timeout
         }
+
+        self.scheduled_decisions.setdefault(category, deque([]))
 
     def register_activity(self, name, category=Defaults.ACTIVITY_CATEGORY, 
         scheduled_timeout=Defaults.ACTIVITY_SCHEDULED_TIMEOUT, 
@@ -250,11 +259,12 @@ class MemoryBackend(Backend):
             self._schedule_decision(expired[0])
 
         # sometimes scheduled decisions have been there for too long as well
-        for (expired) in filter(lambda d: d[2] and d[2] < datetime.now(), self.scheduled_decisions):
-            self.scheduled_decisions.remove(expired)
-            self._schedule_decision(expired[0])
+        for cat, queue in self.scheduled_decisions.items():
+            for (expired) in filter(lambda d: d[2] and d[2] < datetime.now(), queue):
+                queue.remove(expired)
+                self._schedule_decision(expired[0])
 
-    def poll_activity_task(self, category="default", identity=None):
+    def poll_activity_task(self, category=Defaults.ACTIVITY_CATEGORY, identity=None):
         # find queued activity tasks (that haven't timed out)
         try:
             while True:
@@ -273,13 +283,14 @@ class MemoryBackend(Backend):
 
         return ActivityTask(activity_execution, process_id=process.id, context={'run_id': run_id})
 
-    def poll_decision_task(self, identity=None):
+    def poll_decision_task(self, category=Defaults.DECISION_CATEGORY, identity=None):
         # time-out expired activities
         self._time_out_activities()
         self._time_out_decisions()
 
         # find queued decision tasks (that haven't timed out)
-        for d in self.scheduled_decisions:
+        queue = self.scheduled_decisions[category]
+        for d in queue:
             (process, start, expiration, timer) = d
             if start and start > datetime.now():
                 continue
@@ -288,7 +299,7 @@ class MemoryBackend(Backend):
                 if start:
                     process.history.append(TimerEvent(timer))
 
-                self.scheduled_decisions.remove(d)
+                queue.remove(d)
                 break
         else:
             return None

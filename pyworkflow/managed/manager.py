@@ -33,6 +33,7 @@ class Manager(object):
 
     def _register_workflow_with_backend(self, workflow):
         kwargs = {
+            'category': workflow.category,
             'timeout': workflow.timeout,
             'decision_timeout': workflow.decision_timeout
         }
@@ -71,8 +72,8 @@ class Manager(object):
         
         return self._backend.processes(workflow=workflow_name, tag=tag)
 
-    def next_decision(self, identity=None):
-        return self._backend.poll_decision_task(identity=identity)
+    def next_decision(self, identity=None, category=Defaults.DECISION_CATEGORY):
+        return self._backend.poll_decision_task(identity=identity, category=category)
 
     def next_activity(self, identity=None, category=Defaults.ACTIVITY_CATEGORY):
         return self._backend.poll_activity_task(identity=identity, category=category)

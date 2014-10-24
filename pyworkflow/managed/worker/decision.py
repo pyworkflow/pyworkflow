@@ -1,15 +1,17 @@
 from uuid import uuid4
 from ..activity import Activity
 from ...decision import Decision, ScheduleActivity
+from ...defaults import Defaults
 
 class DecisionWorker(object):
     """
     Make decisions provided by the WorkflowManager
     """
 
-    def __init__(self, manager, name=None):
+    def __init__(self, manager, name=None, category=Defaults.DECISION_CATEGORY):
         self.manager = manager
         self.name = name or str(uuid4())
+        self.category = category
 
     def decide(self, task, workflow):
         decisions = workflow.decide(task.process)
@@ -42,7 +44,7 @@ class DecisionWorker(object):
         return msg
 
     def step(self, logger=None):
-        task = self.manager.next_decision(identity=self.name)
+        task = self.manager.next_decision(category=self.category, identity=self.name)
         if task:
             if logger:
                 logger.info(self._log_msg("Starting", task, None, include_task=True))
@@ -62,4 +64,4 @@ class DecisionWorker(object):
             return True # we consumed a task
 
     def __repr__(self):
-        return 'DecisionWorker(%s, %s)' % (self.manager, self.name)
+        return 'DecisionWorker(%s, %s, %s)' % (self.manager, self.name, self.category)

@@ -25,7 +25,7 @@ class Backend(object):
     def poll_activity_task(self, category=Defaults.ACTIVITY_CATEGORY, identity=None):
         raise NotImplementedError()
 
-    def poll_decision_task(self, identity=None):
+    def poll_decision_task(self, category=Defaults.DECISION_CATEGORY, identity=None):
         raise NotImplementedError()
 
     def heartbeat_activity_task(self, task):

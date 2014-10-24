@@ -80,4 +80,4 @@ class ActivityWorker(object):
             return True
 
     def __repr__(self):
-        return 'ActivityWorker(%s, %s)' % (self.manager, self.name)
+        return 'ActivityWorker(%s, %s, %s)' % (self.manager, self.name, self.category)

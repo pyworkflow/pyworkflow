@@ -525,20 +525,28 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert processes == []
 
         # Register an activity in a different category
+        backend.register_workflow('test2', category='heavy_decisions')
         backend.register_activity('triple', category='heavy')
 
         # Start a new workflow process
-        backend.start_process(Process(workflow='test', input=2, tags=["foo"]))
+        backend.start_process(Process(workflow='test2', input=2, tags=["foo"]))
 
-        # Schedule the "heavy" activity
-        task = backend.poll_decision_task()
+        # we shouldn't see decisions on the regular queue
+        if not self.is_external:
+            # this could cause a time-out for external backends
+            task = backend.poll_decision_task()
+            assert task is None
+
+        # But we should see it on the heavy queue
+        task = backend.poll_decision_task('heavy_decisions')
+        assert task is not None
         activity_id = '999'
         backend.complete_decision_task(task, ScheduleActivity('triple', id=activity_id, input=task.process.input))
         date_scheduled = datetime.now()
 
         # Verify we don't get the activity task back from the default queue
         if not self.is_external:
-            # this would cause a time-out for external backends
+            # this could cause a time-out for external backends
             task = backend.poll_activity_task()
             assert task is None
 
@@ -549,14 +557,14 @@ class WorkflowBackendTestCase(unittest.TestCase):
         backend.complete_activity_task(task, ActivityCanceled('notreally'))
 
         # Schedule a normal activity, but put it in the heavy queue
-        task = backend.poll_decision_task()
+        task = backend.poll_decision_task('heavy_decisions')
         activity_id = '999'
         backend.complete_decision_task(task, ScheduleActivity('double', id=activity_id, input=task.process.input, category='heavy'))
         date_scheduled = datetime.now()
 
         # Verify we don't get the activity task back from the default queue
         if not self.is_external:
-            # this will cause a time-out for external backends
+            # this could cause a time-out for external backends
             task = backend.poll_activity_task()
             assert task is None
 
