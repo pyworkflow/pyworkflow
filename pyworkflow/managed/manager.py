@@ -1,6 +1,7 @@
 import itertools
 from ..task import DecisionTask, ActivityTask
 from ..events import ProcessStartedEvent
+from ..defaults import Defaults
 
 class Manager(object):
     """
@@ -73,8 +74,8 @@ class Manager(object):
     def next_decision(self, identity=None):
         return self._backend.poll_decision_task(identity=identity)
 
-    def next_activity(self, identity=None):
-        return self._backend.poll_activity_task(identity=identity)
+    def next_activity(self, identity=None, category=Defaults.ACTIVITY_CATEGORY):
+        return self._backend.poll_activity_task(identity=identity, category=category)
 
     def workflow_for_task(self, task):
         workflow_cls = self._workflows[task.process.workflow]

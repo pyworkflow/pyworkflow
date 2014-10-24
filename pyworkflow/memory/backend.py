@@ -29,26 +29,31 @@ class MemoryBackend(Backend):
         self.running_decisions = {}
 
         self.scheduled_decisions = deque([])
-        self.scheduled_activities = deque([])
+        self.scheduled_activities = {'default': deque([])}
         
     def _managed_process(self, pid):
         return self.running_processes[pid]
 
-    def _schedule_activity(self, process, activity, id, input):
+    def _schedule_activity(self, process, activity, id, input, queue=None):
         expiration = datetime.now() + timedelta(seconds=self.activities[activity]['scheduled_timeout'])
         execution = ActivityExecution(activity, id, input=input)
-        self.scheduled_activities.append((execution, process, expiration))
+        queue = queue or self.activities[activity]['category']
+        self.scheduled_activities[queue].append((execution, process, expiration))
 
     def _activity_by_id(self, id):
         activity = filter(lambda (key, a): a[0].id == id, self.running_activities.items())
         if not activity:
-            activity = filter(lambda a: a[0].id == id, self.scheduled_activities)
+            for q, queue in self.scheduled_activities.items():
+                activity = filter(lambda a: a[0].id == id, queue)
+                if activity:
+                    break
         return (activity or [None])[0]        
 
     def _cancel_activity(self, id):
-        to_cancel = filter(lambda a: a[0].id == id, self.scheduled_activities)
-        for a in to_cancel:
-            self.scheduled_activities.remove(a)
+        for q, queue in self.scheduled_activities.items():
+            to_cancel = filter(lambda a: a[0].id == id, queue)    
+            for a in to_cancel:
+                queue.remove(a)
 
         to_cancel = filter(lambda (key, a): a[0].id == id, self.running_activities.items())
         for (key, a) in to_cancel:
@@ -89,6 +94,8 @@ class MemoryBackend(Backend):
             'execution_timeout': execution_timeout,
             'heartbeat_timeout': heartbeat_timeout
         }
+
+        self.scheduled_activities.setdefault(category, deque([]))
 
     def start_process(self, process):
         # register the process
@@ -163,7 +170,7 @@ class MemoryBackend(Backend):
             
             # schedule activity if needed
             if hasattr(decision, 'activity'):
-                self._schedule_activity(managed_process, decision.activity, decision.id, decision.input)
+                self._schedule_activity(managed_process, decision.activity, decision.id, decision.input, queue=decision.category)
 
             # cancel activity
             if isinstance(decision, CancelActivity):
@@ -222,11 +229,12 @@ class MemoryBackend(Backend):
 
     def _time_out_activities(self):
         # activities that are past expired scheduling date. they're in scheduled_activities
-        for expired in filter(lambda a: a[2] < datetime.now(), self.scheduled_activities):
-            self.scheduled_activities.remove(expired)
-            self._schedule_decision(expired[1])
+        for q, queue in self.scheduled_activities.items():
+            for expired in filter(lambda a: a[2] < datetime.now(), queue):
+                queue.remove(expired)
+                self._schedule_decision(expired[1])
 
-            expired[1].history.append(ActivityEvent(expired[0], ActivityTimedOut()))
+                expired[1].history.append(ActivityEvent(expired[0], ActivityTimedOut()))
 
         # activities that are past expired execution date. they're in running_activities
         for (i, expired) in filter(lambda (i,a): a[2] < datetime.now() or a[3] < datetime.now(), self.running_activities.items()):
@@ -250,7 +258,7 @@ class MemoryBackend(Backend):
         # find queued activity tasks (that haven't timed out)
         try:
             while True:
-                (activity_execution, process, expiration) = self.scheduled_activities.popleft()
+                (activity_execution, process, expiration) = self.scheduled_activities[category].popleft()
                 if expiration >= datetime.now():
                     break
         except:

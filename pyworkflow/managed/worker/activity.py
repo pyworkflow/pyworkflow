@@ -2,15 +2,17 @@ import traceback
 from uuid import uuid4
 from ...activity import ActivityResult, ActivityCompleted, ActivityCanceled, ActivityFailed
 from ..activity import ActivityMonitor
+from ...defaults import Defaults
 
 class ActivityWorker(object):
     """
     Executes activities provided by the WorkflowManager
     """
 
-    def __init__(self, manager, name=None):
+    def __init__(self, manager, name=None, category=Defaults.ACTIVITY_CATEGORY):
         self.manager = manager
         self.name = name or str(uuid4())
+        self.category = category
 
     def monitor_for_task(self, task):
         heartbeat_fn = lambda: self.manager.heartbeat(task)
@@ -57,7 +59,7 @@ class ActivityWorker(object):
         
     def step(self, logger=None):
         # Rely on the backend poll to be blocking
-        task = self.manager.next_activity(identity=self.name)
+        task = self.manager.next_activity(identity=self.name, category=self.category)
         if task:
             if logger:
                 logger.info(self._log_msg('Starting', task, None, include_task=True))

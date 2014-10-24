@@ -22,7 +22,7 @@ class Backend(object):
     def cancel_process(self, process, details=None):
         raise NotImplementedError()
 
-    def poll_activity_task(self, category="default", identity=None):
+    def poll_activity_task(self, category=Defaults.ACTIVITY_CATEGORY, identity=None):
         raise NotImplementedError()
 
     def poll_decision_task(self, identity=None):

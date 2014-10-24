@@ -46,6 +46,8 @@ def delay(delay, use_sleep=False):
     return DelayedExecution(delay, use_sleep)
 
 class MultiplicationActivity(Activity):
+    category = 'computation'
+
     def execute(self):
         self.heartbeat()
 
@@ -131,41 +133,6 @@ class OrderWorkflow(RuleSetWorkflow):
     @rules.signal(name='extra_shipment')
     def on_extra_shipment(self, event, process):
         return ScheduleActivity(ShipmentActivity, input=event.signal.data)
-
-    '''
-    def respond_to_completed_activity(self, process, activity_execution, result):
-        if activity_execution.activity == 'PaymentProcessing':
-            return [ScheduleActivity(ShipmentActivity, input=item) for item in process.input['items']]
-
-        if activity_execution.activity == 'Shipment':
-            if process.unfinished_activities():
-                return []
-
-            def is_interrupted_event(event):
-                return isinstance(event, ActivityEvent) and (isinstance(event.result, ActivityFailed) or isinstance(event.result, ActivityCanceled))
-
-            if not filter(lambda ev: ev.activity_execution.activity == 'Shipment', filter(is_interrupted_event, process.unseen_events())):
-                return CompleteProcess()
-
-        if activity_execution.activity == 'CancelOrder':
-            return CancelProcess()
-            
-
-    def respond_to_interrupted_activity(self, process, activity_execution, details):
-        if activity_execution.activity == 'PaymentProcessing':
-            return CancelProcess('payment_aborted')
-
-        if activity_execution.activity == 'Shipment':
-            decisions = []
-            for activity_execution in process.unfinished_activities():
-                decisions.append(CancelActivity(activity_execution.id))
-            decisions.append(ScheduleActivity(CancelOrderActivity, input=process.input))
-            return decisions
-
-    def respond_to_signal(self, process, signal):
-        if signal.name == 'extra_shipment':
-            return ScheduleActivity(ShipmentActivity, input=signal.data)
-    '''
 
 
 class TimeoutActivity(Activity):
@@ -271,7 +238,7 @@ class WorkflowBasicTestCase(unittest.TestCase):
 
 class WorkflowBackendTestCase(unittest.TestCase):
 
-    use_sleep = False
+    is_external = False
 
     def construct_backend(self):
         raise NotImplementedError()
@@ -281,7 +248,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         manager = Manager(backend, workflows=[TimeoutWorkflow])
 
         # Start a new TimeoutWorkflow process
-        process = Process(workflow=TimeoutWorkflow, input={'sleep': self.use_sleep})
+        process = Process(workflow=TimeoutWorkflow, input={'sleep': self.is_external})
         manager.start_process(process)
 
         # Decide initial activity
@@ -289,24 +256,24 @@ class WorkflowBackendTestCase(unittest.TestCase):
         assert task
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':0,'sleep':self.use_sleep}, id=1)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':0,'sleep':self.is_external}, id=1)
         manager.complete_task(task, decision)
 
         # Let the schedule time-out hit
-        with delay(1, self.use_sleep):
+        with delay(1, self.is_external):
             # The task should be passed back to the decider
             task = manager.next_decision()
             assert task
 
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'sleep':self.use_sleep}, id=2)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'sleep':self.is_external}, id=2)
         manager.complete_task(task, decision)
 
         # This time, execute the activity and time out before heartbeat
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
-        with delay(1, self.use_sleep): # heartbeat timeout == 1
+        with delay(1, self.is_external): # heartbeat timeout == 1
             try:
                 manager.complete_task(task, ActivityCompleted(result=True))
                 assert False, "should have timed out and not allowed completion"
@@ -317,14 +284,14 @@ class WorkflowBackendTestCase(unittest.TestCase):
         task = manager.next_decision()
         workflow = manager.workflow_for_task(task)
         decision = workflow.decide(task.process)
-        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'heartbeat':True,'sleep':self.use_sleep}, id=3)
+        assert decision == ScheduleActivity(TimeoutActivity, input={'duration':2,'heartbeat':True,'sleep':self.is_external}, id=3)
         manager.complete_task(task, decision)
         
         # This time, execute the activity and time out on execution
         task = manager.next_activity()
         activity = manager.activity_for_task(task)
         result = activity.execute()
-        with delay(2, self.use_sleep): # execution timeout == 2
+        with delay(2, self.is_external): # execution timeout == 2
             try:
                 manager.complete_task(task, ActivityCompleted(result=result))
                 assert False, "should have timed out and not allowed completion"
@@ -545,7 +512,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Complete the child process
         backend.complete_decision_task(task, CompleteProcess(result=50))
 
-        if self.use_sleep:
+        if self.is_external:
             sleep(.5)
 
         # Complete the parent process
@@ -556,6 +523,48 @@ class WorkflowBackendTestCase(unittest.TestCase):
         # Verify there are now no more processes
         processes = list(backend.processes())
         assert processes == []
+
+        # Register an activity in a different category
+        backend.register_activity('triple', category='heavy')
+
+        # Start a new workflow process
+        backend.start_process(Process(workflow='test', input=2, tags=["foo"]))
+
+        # Schedule the "heavy" activity
+        task = backend.poll_decision_task()
+        activity_id = '999'
+        backend.complete_decision_task(task, ScheduleActivity('triple', id=activity_id, input=task.process.input))
+        date_scheduled = datetime.now()
+
+        # Verify we don't get the activity task back from the default queue
+        if not self.is_external:
+            # this would cause a time-out for external backends
+            task = backend.poll_activity_task()
+            assert task is None
+
+        # But we do get it from the heavy queue
+        task = backend.poll_activity_task(category='heavy')
+        assert task.activity_execution.activity == 'triple'
+        assert task.activity_execution.input == 2
+        backend.complete_activity_task(task, ActivityCanceled('notreally'))
+
+        # Schedule a normal activity, but put it in the heavy queue
+        task = backend.poll_decision_task()
+        activity_id = '999'
+        backend.complete_decision_task(task, ScheduleActivity('double', id=activity_id, input=task.process.input, category='heavy'))
+        date_scheduled = datetime.now()
+
+        # Verify we don't get the activity task back from the default queue
+        if not self.is_external:
+            # this will cause a time-out for external backends
+            task = backend.poll_activity_task()
+            assert task is None
+
+        # Verify we can read the task from the heavy queue
+        task = backend.poll_activity_task(category='heavy')
+        assert task.activity_execution.activity == 'double'
+        assert task.activity_execution.input == 2
+        
 
     def subtest_managed(self):
         backend = self.construct_backend()
@@ -582,7 +591,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         date_scheduled = datetime.now()
         
         # Run the activity
-        task = manager.next_activity()
+        task = manager.next_activity(category='computation')
         activity = manager.activity_for_task(task)
         assert activity == MultiplicationActivity(task)
         assert task.activity_execution.activity == 'Multiplication'
@@ -798,7 +807,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         self.assertEquals(decision, Timer(timer_delay, {'foo': 'bar'}))
 
         # no use checking for absence of tasks here, some backends are long-polling
-        with delay(timer_delay, self.use_sleep):
+        with delay(timer_delay, self.is_external):
             # Activity: abort
             task = manager.next_decision()
             assert task.process == Process(id=pid, workflow='TimerTest', input=None, tags=[], history=[
@@ -834,7 +843,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         worker_mgr = manager.copy_with_backend(self.construct_backend())
         # make sure backend is fully initialized
         assert len(list(worker_mgr.processes())) == 0
-        worker = WorkerThread(ActivityWorker(worker_mgr))
+        worker = WorkerThread(ActivityWorker(worker_mgr, category='computation'))
         worker.start()
 
         # Start a new FooWorkflow process
@@ -847,7 +856,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
         for _ in range(0,40):
             if len(list(manager.processes())) == 0:
                 break
-            sleep(.1)
+            sleep(.1) # have to use sleep because of different runtimes
 
         decider.join(1)
         worker.join(1)
