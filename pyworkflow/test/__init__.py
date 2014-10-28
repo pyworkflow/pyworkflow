@@ -337,7 +337,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
         # Terminate the second process
         processes = list(backend.processes(tag="process-5678"))
-        backend.cancel_process(processes[0])
+        backend.cancel_process(processes[0].id)
         processes = list(backend.processes())
         assert processes[0] == Process(id=pid1, workflow='test', input=2, tags=["process-1234", "foo"])
 
@@ -364,7 +364,7 @@ class WorkflowBackendTestCase(unittest.TestCase):
 
 
         # Send a signal
-        backend.signal_process(processes[0], 'some_signal', data={'test': 123})
+        backend.signal_process(processes[0].id, 'some_signal', data={'test': 123})
 
         # Verify the signal is in the history
         processes = list(backend.processes())

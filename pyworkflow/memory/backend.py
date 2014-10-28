@@ -113,10 +113,9 @@ class MemoryBackend(Backend):
         # schedule a decision
         self._schedule_decision(process)
         
-    def signal_process(self, process_or_id, signal, data=None):
+    def signal_process(self, process_id, signal, data=None):
         # find the process as we know it
-        pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
-        managed_process = self._managed_process(pid)
+        managed_process = self._managed_process(process_id)
 
         # append the signal event
         managed_process.history.append(SignalEvent(Signal(signal, data)))
@@ -137,10 +136,9 @@ class MemoryBackend(Backend):
         for c in children:
             self.cancel_process(c.id)
 
-    def cancel_process(self, process_or_id, details=None):
+    def cancel_process(self, process_id, details=None):
         # find the process as we know it
-        pid = process_or_id.id if hasattr(process_or_id, 'id') else process_or_id
-        managed_process = self._managed_process(pid)
+        managed_process = self._managed_process(process_id)
 
         # append the cancelation event
         managed_process.history.append(DecisionEvent(CancelProcess(details=details)))

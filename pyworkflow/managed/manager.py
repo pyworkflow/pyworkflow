@@ -51,13 +51,15 @@ class Manager(object):
         self._backend.register_activity(activity.name, **kwargs)
         
     def start_process(self, process):
-        self._backend.start_process(process)
+        return self._backend.start_process(process)
 
-    def signal_process(self, process, signal):
-        self._backend.signal_process(process, signal.name, signal.data)
+    def signal_process(self, process_or_id, signal):
+        process_id = getattr(process_or_id, 'id', process_or_id)
+        self._backend.signal_process(process_id, signal.name, signal.data)
 
-    def cancel_process(self, process, details=None):
-        self._backend.cancel_process(process, details=details)
+    def cancel_process(self, process_or_id, details=None):
+        process_id = getattr(process_or_id, 'id', process_or_id)
+        self._backend.cancel_process(process_id, details=details)
 
     def heartbeat(self, task):
         self._backend.heartbeat_activity_task(task)

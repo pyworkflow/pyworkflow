@@ -16,10 +16,10 @@ class Backend(object):
     def start_process(self, process):
         raise NotImplementedError()
     
-    def signal_process(self, process, signal, data=None):
-        raise NotImplementedError()
+    def signal_process(self, process_id, signal, data=None):
+        raise NotImplementedError()()
 
-    def cancel_process(self, process, details=None):
+    def cancel_process(self, process_id, details=None):
         raise NotImplementedError()
 
     def poll_activity_task(self, category=Defaults.ACTIVITY_CATEGORY, identity=None):
@@ -35,4 +35,4 @@ class Backend(object):
         raise NotImplementedError()
 
     def complete_activity_task(self, task, result=None):
-        raise NotImplementedError()
+        raise NotImplementedError
