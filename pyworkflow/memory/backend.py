@@ -108,10 +108,12 @@ class MemoryBackend(Backend):
 
     def start_process(self, process):
         # register the process
-        process = process.copy_with_id(str(uuid4()), history=[ProcessStartedEvent()])
+        pid = str(uuid4())
+        process = process.copy_with_id(pid, history=[ProcessStartedEvent()])
         self.running_processes[process.id] = process
         # schedule a decision
         self._schedule_decision(process)
+        return pid
         
     def signal_process(self, process_id, signal, data=None):
         # find the process as we know it
